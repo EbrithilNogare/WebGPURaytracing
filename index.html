@@ -1,0 +1,24 @@
+<!DOCTYPE html>
+<html>
+<head>
+	<title>WebGL Raytracing</title>
+
+	<link rel="stylesheet" href="main.css">
+
+	<script src="square.vert.wgsl" type="x-shader/x-vertex" id="vertex-shader"></script>
+	<script src="raytracing.frag.wgsl" type="x-shader/x-fragment" id="fragment-shader"></script>
+
+	<script src="main.js"></script>
+</head>
+<body onload="init()">
+
+	<canvas id="canvas">no canvas</canvas>
+	<div id="fpsMeter">0 fps</div>
+	<div id="console">
+		<div id="compilerInfo"></div>
+		<div id="errorLog"></div>
+	</div>
+	<div id="helper">press SPACE to run/stop animation</div>
+
+</body>
+</html>
