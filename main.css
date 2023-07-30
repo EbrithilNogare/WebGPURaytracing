@@ -22,7 +22,7 @@ canvas {
 
 }
 
-#fpsMeter{
+#fpsMeter, #iteration{
     position: absolute;
     left: 0;
     top: 0;
@@ -30,6 +30,10 @@ canvas {
     color: #f00;
     font-family: monospace;
     background: black;
+}
+
+#iteration{
+    top: 20px;
 }
 
 #helper{
