@@ -7,9 +7,7 @@ let pipeline: GPURenderPipeline;
 let program;
 let tick = 0;
 let bindGroup: GPUBindGroup;
-let resolutionBuffer: GPUBuffer;
-let cameraPosBuffer: GPUBuffer;
-let cameraLookAtBuffer: GPUBuffer;
+let bufferLocations: Record<string, GPUBuffer>;
 let camera = {
   x: () => 4 * Math.sin(tick / 100),
   y: () => 0.9,
@@ -19,10 +17,8 @@ let camera = {
 const F32_SIZE = 4;
 
 async function init() {
-  const adapter = await navigator.gpu.requestAdapter();
-  if (adapter == null) {
-    throw "no adapter";
-  }
+  const adapter =
+    (await navigator.gpu.requestAdapter()) ?? throwExpression("no adapter");
 
   device = await adapter.requestDevice();
 
@@ -30,19 +26,12 @@ async function init() {
   canvas.width = window.innerWidth;
   canvas.height = window.innerHeight;
 
-  const contextOrNull = canvas.getContext("webgpu");
-
-  if (contextOrNull == null) {
-    throw "no webgpu";
-  } else {
-    context = contextOrNull;
-  }
-
-  document.body.onkeydown = function (e) {
-    if (e.key == " " || e.code == "Space") loop = !loop;
-  };
+  context = canvas.getContext("webgpu") ?? throwExpression("no context");
 
   await initProgram();
+
+  window.addEventListener("keydown", startStopLoop);
+  window.addEventListener("resize", resizeCanvas);
 
   renderLoop();
   render();
@@ -61,8 +50,6 @@ async function initProgram() {
       throw "cannot load raytracing.frag.wgsl";
     });
 
-  let stopwatch = Date.now();
-
   const presentationFormat = navigator.gpu.getPreferredCanvasFormat();
 
   context.configure({
@@ -70,6 +57,11 @@ async function initProgram() {
     format: presentationFormat,
     alphaMode: "premultiplied",
   });
+
+  // Create buffers
+  bufferLocations = createBuffers(device);
+
+  // Create bind group
 
   const bindGroupLayout = device.createBindGroupLayout({
     entries: [
@@ -101,6 +93,44 @@ async function initProgram() {
     ],
   });
 
+  bindGroup = device.createBindGroup({
+    layout: bindGroupLayout,
+    entries: [
+      {
+        binding: 0,
+        resource: {
+          buffer: bufferLocations.resolutionBuffer,
+        },
+      },
+      {
+        binding: 1,
+        resource: {
+          buffer: bufferLocations.cameraPosBuffer,
+        },
+      },
+      {
+        binding: 2,
+        resource: {
+          buffer: bufferLocations.cameraLookAtBuffer,
+        },
+      },
+      {
+        binding: 3,
+        resource: {
+          buffer: bufferLocations.iterationBuffer,
+        },
+      },
+      {
+        binding: 4,
+        resource: {
+          buffer: bufferLocations.collectionBuffer,
+        },
+      },
+    ],
+  });
+
+  // Create pipeline
+
   const pipelineLayout = device.createPipelineLayout({
     bindGroupLayouts: [bindGroupLayout],
   });
@@ -128,87 +158,24 @@ async function initProgram() {
       topology: "triangle-list",
     },
   });
-
-  resolutionBuffer = device.createBuffer({
-    size: 2 * F32_SIZE,
-    usage: GPUBufferUsage.COPY_DST | GPUBufferUsage.UNIFORM,
-  });
-  cameraPosBuffer = device.createBuffer({
-    size: 3 * F32_SIZE,
-    usage: GPUBufferUsage.COPY_DST | GPUBufferUsage.UNIFORM,
-  });
-  cameraLookAtBuffer = device.createBuffer({
-    size: 3 * F32_SIZE,
-    usage: GPUBufferUsage.COPY_DST | GPUBufferUsage.UNIFORM,
-  });
-
-  const iterationBuffer = device.createBuffer({
-    size: F32_SIZE,
-    //usage: GPUBufferUsage.STORAGE | GPUBufferUsage.VERTEX,
-    usage: GPUBufferUsage.COPY_DST | GPUBufferUsage.UNIFORM,
-    //type: "storage",
-  });
-
-  const collectionBuffer = device.createBuffer({
-    size: F32_SIZE,
-    //usage: GPUBufferUsage.STORAGE | GPUBufferUsage.VERTEX,
-    usage: GPUBufferUsage.COPY_DST | GPUBufferUsage.UNIFORM,
-    //type: "storage",
-  });
-
-  bindGroup = device.createBindGroup({
-    layout: bindGroupLayout,
-    entries: [
-      {
-        binding: 0,
-        resource: {
-          buffer: resolutionBuffer,
-        },
-      },
-      {
-        binding: 1,
-        resource: {
-          buffer: cameraPosBuffer,
-        },
-      },
-      {
-        binding: 2,
-        resource: {
-          buffer: cameraLookAtBuffer,
-        },
-      },
-      {
-        binding: 3,
-        resource: {
-          buffer: iterationBuffer,
-        },
-      },
-      {
-        binding: 4,
-        resource: {
-          buffer: collectionBuffer,
-        },
-      },
-    ],
-  });
-
-  console.log(`Time to compile: ${Date.now() - stopwatch} ms`);
 }
 
 function render() {
-  tick += 0.5;
-
   device.queue.writeBuffer(
-    resolutionBuffer,
+    bufferLocations.resolutionBuffer,
     0,
     new Float32Array([canvas.width, canvas.height])
   );
   device.queue.writeBuffer(
-    cameraPosBuffer,
+    bufferLocations.cameraPosBuffer,
     0,
     new Float32Array([camera.x(), camera.y(), camera.z()])
   );
-  device.queue.writeBuffer(cameraLookAtBuffer, 0, new Float32Array([0, 0, 0]));
+  device.queue.writeBuffer(
+    bufferLocations.cameraLookAtBuffer,
+    0,
+    new Float32Array([0, 0, 0])
+  );
 
   const commandEncoder = device.createCommandEncoder();
   const textureView = context.getCurrentTexture().createView();
@@ -235,6 +202,7 @@ function render() {
 
 function renderLoop() {
   if (loop) {
+    tick += 0.5;
     tickFPSMeter();
     render();
   }
@@ -247,4 +215,51 @@ function tickFPSMeter() {
   const fps = (1 / deltaTime) * frameTimes.length;
   frameTimes.push(now);
   if (frameTimes.length > 60) frameTimes.shift();
+}
+
+function throwExpression(errorMessage: string): never {
+  throw new Error(errorMessage);
+}
+
+function resizeCanvas() {
+  canvas.width = window.innerWidth;
+  canvas.height = window.innerHeight;
+
+  if (!loop && device != null) {
+    requestAnimationFrame(render);
+  }
+}
+
+function startStopLoop(e: KeyboardEvent) {
+  if (e.key == " " || e.code == "Space") loop = !loop;
+}
+
+function createBuffers(gpuDevice: GPUDevice) {
+  return {
+    resolutionBuffer: gpuDevice.createBuffer({
+      size: 2 * F32_SIZE,
+      usage: GPUBufferUsage.COPY_DST | GPUBufferUsage.UNIFORM,
+    }),
+
+    cameraPosBuffer: gpuDevice.createBuffer({
+      size: 3 * F32_SIZE,
+      usage: GPUBufferUsage.COPY_DST | GPUBufferUsage.UNIFORM,
+    }),
+
+    cameraLookAtBuffer: gpuDevice.createBuffer({
+      size: 3 * F32_SIZE,
+      usage: GPUBufferUsage.COPY_DST | GPUBufferUsage.UNIFORM,
+    }),
+
+    iterationBuffer: gpuDevice.createBuffer({
+      size: F32_SIZE,
+      usage: GPUBufferUsage.COPY_DST | GPUBufferUsage.UNIFORM,
+    }),
+
+    collectionBuffer: gpuDevice.createBuffer({
+      size: F32_SIZE,
+      //usage: GPUBufferUsage.STORAGE | GPUBufferUsage.VERTEX,
+      usage: GPUBufferUsage.COPY_DST | GPUBufferUsage.UNIFORM,
+    }),
+  };
 }
