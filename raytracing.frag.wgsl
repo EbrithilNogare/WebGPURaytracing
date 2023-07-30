@@ -1,10 +1,12 @@
 const SAMPLES: i32 = 1;
-const MAXBOUNCES: i32 = 8;
+const MAXBOUNCES: i32 = 32;
 
 @group(0) @binding(0) var<uniform> resolution : vec2f;
 @group(0) @binding(1) var<uniform> cameraPos : vec3f;
 @group(0) @binding(2) var<uniform> cameraLookAt : vec3f;
-@group(0) @binding(3) var<uniform> collection : f32;
+@group(0) @binding(3) var<uniform> iteration : f32;
+@group(0) @binding(4) var collection : texture_2d<f32>;
+@group(0) @binding(5) var mySampler : sampler;
 
 // ########### Constants ###########
 
@@ -122,7 +124,7 @@ fn at(ray: Ray, t: f32) -> vec3f {
 }
 
 fn rand(seed: f32) -> f32 {
-    return fract(sin(dot(vec2(seed) * coordinates, vec2(12.9898, 78.233))) * 43758.5453);
+    return fract(sin(dot(vec2(seed + 1 / iteration) * coordinates, vec2(12.9898, 78.233))) * 43758.5453);
 }
 
 fn randMM(seed: f32, min: f32, max: f32) -> f32 {
@@ -329,7 +331,7 @@ fn main(
 	var lower_left_corner = origin - horizontal / 2. - vertical / 2. - focus_dist * w;
 
 	for(var sampleI = 0; sampleI < SAMPLES; sampleI++){
-		var randomOffset = rand2(1.11 * f32(sampleI)) / resolution;
+		var randomOffset = rand2(42.4 * f32(sampleI) + 3/iteration) / resolution;
 		randomOffset += fragPosition.xy;
 
 		var ray = Ray(cameraPos, lower_left_corner + randomOffset.x * horizontal + randomOffset.y * vertical - cameraPos);
@@ -337,6 +339,18 @@ fn main(
 	}
 
 	var gamma = 2.2;
-	
-	return vec4(pow(tmpColor / f32(SAMPLES), vec3f(1.0 / gamma)), 1.0);
+
+	var current = pow(tmpColor / f32(SAMPLES), vec3f(1.0 / gamma));
+
+	//var previous = textureSample(collection, mySampler, fragPosition.xy).xyz;
+
+	var previous = textureLoad(
+    	collection,
+    	vec2<i32>((vec2(fragPosition.x,1-fragPosition.y)) * resolution.xy),
+    	0
+  	).xyz;
+
+	//return vec4(vec3(rand(42.4)), 1);
+
+	return vec4(mix(previous, current, 1/iteration), 1.0);
 }

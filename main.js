@@ -15,9 +15,11 @@ let frameTimes = [];
 let loop = false;
 let pipeline;
 let program;
-let tick = 0;
+let tick = 1;
 let bindGroup;
 let bufferLocations;
+let textureLocations;
+let collectionView;
 let camera = {
     x: () => 4 * Math.sin(tick / 100),
     y: () => 0.9,
@@ -35,6 +37,8 @@ function init() {
         context = (_b = canvas.getContext("webgpu")) !== null && _b !== void 0 ? _b : throwExpression("no context");
         yield initProgram();
         window.addEventListener("keydown", startStopLoop);
+        window.addEventListener("keydown", clearFrame);
+        window.addEventListener("keydown", nextFrame);
         window.addEventListener("resize", resizeCanvas);
         renderLoop();
         render();
@@ -57,9 +61,20 @@ function initProgram() {
             device,
             format: presentationFormat,
             alphaMode: "premultiplied",
+            usage: GPUTextureUsage.RENDER_ATTACHMENT | GPUTextureUsage.COPY_SRC,
         });
+        // Create a sampler with linear filtering for smooth interpolation.
+        const sampler = device.createSampler({});
         // Create buffers
         bufferLocations = createBuffers(device);
+        textureLocations = {
+            collectionBuffer: device.createTexture({
+                size: [canvas.width, canvas.height],
+                usage: GPUTextureUsage.TEXTURE_BINDING | GPUTextureUsage.COPY_DST,
+                format: presentationFormat,
+            }),
+        };
+        collectionView = textureLocations.collectionBuffer.createView();
         // Create bind group
         const bindGroupLayout = device.createBindGroupLayout({
             entries: [
@@ -86,7 +101,14 @@ function initProgram() {
                 {
                     binding: 4,
                     visibility: GPUShaderStage.FRAGMENT,
-                    buffer: {},
+                    texture: {
+                        sampleType: "unfilterable-float",
+                    },
+                },
+                {
+                    binding: 5,
+                    visibility: GPUShaderStage.FRAGMENT,
+                    sampler: {},
                 },
             ],
         });
@@ -119,9 +141,11 @@ function initProgram() {
                 },
                 {
                     binding: 4,
-                    resource: {
-                        buffer: bufferLocations.collectionBuffer,
-                    },
+                    resource: collectionView,
+                },
+                {
+                    binding: 5,
+                    resource: sampler,
                 },
             ],
         });
@@ -156,10 +180,12 @@ function initProgram() {
 }
 function render() {
     device.queue.writeBuffer(bufferLocations.resolutionBuffer, 0, new Float32Array([canvas.width, canvas.height]));
-    device.queue.writeBuffer(bufferLocations.cameraPosBuffer, 0, new Float32Array([camera.x(), camera.y(), camera.z()]));
+    device.queue.writeBuffer(bufferLocations.cameraPosBuffer, 0, new Float32Array([4 * Math.sin(0), 0.9, 4 * Math.cos(0)]));
     device.queue.writeBuffer(bufferLocations.cameraLookAtBuffer, 0, new Float32Array([0, 0, 0]));
+    device.queue.writeBuffer(bufferLocations.iterationBuffer, 0, new Float32Array([tick]));
     const commandEncoder = device.createCommandEncoder();
-    const textureView = context.getCurrentTexture().createView();
+    const canvasTexture = context.getCurrentTexture();
+    const textureView = canvasTexture.createView();
     const renderPassDescriptor = {
         colorAttachments: [
             {
@@ -175,23 +201,31 @@ function render() {
     passEncoder.setBindGroup(0, bindGroup); // @group(0)
     passEncoder.draw(3, 1, 0, 0);
     passEncoder.end();
+    // Copy the rendering results from the swapchain into |cubeTexture|.
+    commandEncoder.copyTextureToTexture({
+        texture: canvasTexture,
+    }, {
+        texture: textureLocations.collectionBuffer,
+    }, [canvas.width, canvas.height]);
     device.queue.submit([commandEncoder.finish()]);
 }
 function renderLoop() {
     if (loop) {
-        tick += 0.5;
         tickFPSMeter();
         render();
     }
     requestAnimationFrame(renderLoop);
 }
 function tickFPSMeter() {
+    tick++;
     let now = Date.now() * 0.001;
     const deltaTime = now - (frameTimes[0] || now);
     const fps = (1 / deltaTime) * frameTimes.length;
     frameTimes.push(now);
     if (frameTimes.length > 60)
         frameTimes.shift();
+    document.getElementById("fpsMeter").textContent = `${fps.toFixed(2)} fps`;
+    document.getElementById("iteration").textContent = `iteration: ${tick}`;
 }
 function throwExpression(errorMessage) {
     throw new Error(errorMessage);
@@ -200,12 +234,27 @@ function resizeCanvas() {
     canvas.width = window.innerWidth;
     canvas.height = window.innerHeight;
     if (!loop && device != null) {
-        requestAnimationFrame(render);
+        tickFPSMeter();
+        render();
     }
 }
 function startStopLoop(e) {
-    if (e.key == " " || e.code == "Space")
+    if (e.key == " " || e.code == "Space") {
         loop = !loop;
+    }
+}
+function nextFrame(e) {
+    if (e.key == "n" || e.code == "KeyN") {
+        tickFPSMeter();
+        render();
+    }
+}
+function clearFrame(e) {
+    if (e.key == "c" || e.code == "KeyC") {
+        tick = 0;
+        tickFPSMeter();
+        render();
+    }
 }
 function createBuffers(gpuDevice) {
     return {
@@ -223,11 +272,6 @@ function createBuffers(gpuDevice) {
         }),
         iterationBuffer: gpuDevice.createBuffer({
             size: F32_SIZE,
-            usage: GPUBufferUsage.COPY_DST | GPUBufferUsage.UNIFORM,
-        }),
-        collectionBuffer: gpuDevice.createBuffer({
-            size: F32_SIZE,
-            //usage: GPUBufferUsage.STORAGE | GPUBufferUsage.VERTEX,
             usage: GPUBufferUsage.COPY_DST | GPUBufferUsage.UNIFORM,
         }),
     };
