@@ -1,9 +1,10 @@
-const SAMPLES: i32 = 16;
+const SAMPLES: i32 = 1;
 const MAXBOUNCES: i32 = 8;
 
 @group(0) @binding(0) var<uniform> resolution : vec2f;
 @group(0) @binding(1) var<uniform> cameraPos : vec3f;
 @group(0) @binding(2) var<uniform> cameraLookAt : vec3f;
+@group(0) @binding(3) var<uniform> collection : f32;
 
 // ########### Constants ###########
 

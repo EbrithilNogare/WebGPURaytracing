@@ -74,8 +74,42 @@ async function initProgram() {
     alphaMode: "premultiplied",
   });
 
+  const bindGroupLayout = device.createBindGroupLayout({
+    entries: [
+      {
+        binding: 0,
+        visibility: GPUShaderStage.FRAGMENT,
+        buffer: {},
+      },
+      {
+        binding: 1,
+        visibility: GPUShaderStage.FRAGMENT,
+        buffer: {},
+      },
+      {
+        binding: 2,
+        visibility: GPUShaderStage.FRAGMENT,
+        buffer: {},
+      },
+      {
+        binding: 3,
+        visibility: GPUShaderStage.FRAGMENT,
+        buffer: {},
+      },
+      {
+        binding: 4,
+        visibility: GPUShaderStage.FRAGMENT,
+        buffer: {},
+      },
+    ],
+  });
+
+  const pipelineLayout = device.createPipelineLayout({
+    bindGroupLayouts: [bindGroupLayout],
+  });
+
   pipeline = device.createRenderPipeline({
-    layout: "auto",
+    layout: pipelineLayout,
     vertex: {
       module: device.createShaderModule({
         code: vertexShaderText,
@@ -111,8 +145,22 @@ async function initProgram() {
     usage: GPUBufferUsage.COPY_DST | GPUBufferUsage.UNIFORM,
   });
 
+  iterationBuffer = device.createBuffer({
+    size: F32_SIZE,
+    //usage: GPUBufferUsage.STORAGE | GPUBufferUsage.VERTEX,
+    usage: GPUBufferUsage.COPY_DST | GPUBufferUsage.UNIFORM,
+    //type: "storage",
+  });
+
+  collectionBuffer = device.createBuffer({
+    size: F32_SIZE,
+    //usage: GPUBufferUsage.STORAGE | GPUBufferUsage.VERTEX,
+    usage: GPUBufferUsage.COPY_DST | GPUBufferUsage.UNIFORM,
+    //type: "storage",
+  });
+
   bindGroup = device.createBindGroup({
-    layout: pipeline.getBindGroupLayout(0), // @group(0)
+    layout: bindGroupLayout,
     entries: [
       {
         binding: 0,
@@ -130,6 +178,18 @@ async function initProgram() {
         binding: 2,
         resource: {
           buffer: cameraLookAtBuffer,
+        },
+      },
+      {
+        binding: 3,
+        resource: {
+          buffer: iterationBuffer,
+        },
+      },
+      {
+        binding: 4,
+        resource: {
+          buffer: collectionBuffer,
         },
       },
     ],
@@ -154,6 +214,7 @@ function render() {
     new Float32Array([camera.x(), camera.y(), camera.z()])
   );
   device.queue.writeBuffer(cameraLookAtBuffer, 0, new Float32Array([0, 0, 0]));
+  device.queue.writeBuffer(collectionBuffer, 0, new Float32Array([0]));
 
   const commandEncoder = device.createCommandEncoder();
   const textureView = context.getCurrentTexture().createView();
