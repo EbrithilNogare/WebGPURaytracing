@@ -37,6 +37,13 @@ struct Sphere {
     material: Material,
 };
 
+struct Triangle {
+	p0: vec3f,
+	p1: vec3f,
+	p2: vec3f,
+    material: Material,
+};
+
 struct HitRecord {
     p: vec3f,         // position
     normal: vec3f,
@@ -110,6 +117,11 @@ const spheres = array<Sphere, spheresCount>(
 	Sphere(vec3f( 0.0, 0.1,-2.0), 0.1, glass),
 
 	Sphere(vec3f( 0.0,-255, 0.0), 255.0, ground) // ground
+);
+
+const trianglesCount = 1;
+const triangles = array<Triangle, trianglesCount>(
+	Triangle(vec3f(2.0, 0.2, 1.0), vec3f(-1.0, 0.1, 1.0), vec3f(0.0, 0.1, 2.0), solidWhite),
 );
 
 
@@ -210,11 +222,51 @@ fn hitSphere(sphere: Sphere, ray: Ray, tMin: f32, tMax: f32, rec: ptr<function, 
 	return true;
 }
 
+fn hitTriangle(triangle: Triangle, ray: Ray, tMin: f32, tMax: f32, rec: ptr<function, HitRecord>) -> bool {
+	let e0 = triangle.p1 - triangle.p0;
+    let e1 = triangle.p0 - triangle.p2;
+    let triangleNormal = cross( e1, e0 );
+
+	let e2 = ( 1.0 / dot( triangleNormal, ray.direction ) ) * ( triangle.p0 - ray.origin );
+    let i = cross( ray.direction, e2 );
+
+	var barycentricCoord = vec3f(0);
+    barycentricCoord.y = dot( i, e1 );
+    barycentricCoord.z = dot( i, e0 );
+    barycentricCoord.x = 1.0 - (barycentricCoord.z + barycentricCoord.y);
+    let hit = dot( triangleNormal, e2 );
+
+	if(hit > tMax || hit < tMin){
+		return false;
+	}
+	
+	if(barycentricCoord.x > 1 || barycentricCoord.x < 0||
+		barycentricCoord.y > 1 || barycentricCoord.y < 0|| 
+		barycentricCoord.z > 1 || barycentricCoord.z < 0){
+		return false;
+	}
+
+	(*rec).t = hit;
+	(*rec).p = at(ray, (*rec).t);
+	(*rec).frontFace = dot(ray.direction, triangleNormal) < 0.;
+	(*rec).normal = triangleNormal;
+	(*rec).material = triangle.material;
+	(*rec).u = 0;
+	(*rec).v = 0;
+
+    return true;
+}
+
+
 fn WorldHit(ray: Ray) -> HitRecord{
 	var rec = HitRecord(vec3(0.0),vec3(0.0), INFINITY, 0.0, 0.0, false, ground);
 
 	for(var i: i32 = 0; i < spheresCount; i++){
 		hitSphere(spheres[i], ray, EPSILON, rec.t, &rec);
+    }
+	
+	for(var i: i32 = 0; i < trianglesCount; i++){
+		hitTriangle(triangles[i], ray, EPSILON, rec.t, &rec);
     }
 		
 	for(var i: i32 = 0; i < lightsCount; i++){
