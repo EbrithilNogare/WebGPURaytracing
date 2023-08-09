@@ -404,5 +404,7 @@ fn main(
 
 	//return vec4(vec3(rand(42.4)), 1);
 
+	current = max(vec3f(0,0,0), current);
+
 	return vec4(mix(previous, current, 1/iteration), 1.0);
 }
