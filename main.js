@@ -19,11 +19,12 @@ let tick = 1;
 let bindGroup;
 let bufferLocations;
 let textureLocations;
-let collectionView;
+let previousFrameView;
+let currentFrameView;
 let camera = {
-    x: () => 4 * Math.sin(tick / 100),
+    x: () => 0,
     y: () => 0.9,
-    z: () => 4 * Math.cos(tick / 100),
+    z: () => 4,
 };
 const F32_SIZE = 4;
 function init() {
@@ -63,18 +64,22 @@ function initProgram() {
             alphaMode: "premultiplied",
             usage: GPUTextureUsage.RENDER_ATTACHMENT | GPUTextureUsage.COPY_SRC,
         });
-        // Create a sampler with linear filtering for smooth interpolation.
-        const sampler = device.createSampler({});
         // Create buffers
         bufferLocations = createBuffers(device);
         textureLocations = {
-            collectionBuffer: device.createTexture({
+            previousFrameBuffer: device.createTexture({
                 size: [canvas.width, canvas.height],
                 usage: GPUTextureUsage.TEXTURE_BINDING | GPUTextureUsage.COPY_DST,
-                format: presentationFormat,
+                format: "rgba32float",
+            }),
+            currentFrameBuffer: device.createTexture({
+                size: [canvas.width, canvas.height],
+                usage: GPUTextureUsage.STORAGE_BINDING | GPUTextureUsage.COPY_SRC,
+                format: "rgba32float",
             }),
         };
-        collectionView = textureLocations.collectionBuffer.createView();
+        previousFrameView = textureLocations.previousFrameBuffer.createView();
+        currentFrameView = textureLocations.currentFrameBuffer.createView();
         // Create bind group
         const bindGroupLayout = device.createBindGroupLayout({
             entries: [
@@ -108,7 +113,9 @@ function initProgram() {
                 {
                     binding: 5,
                     visibility: GPUShaderStage.FRAGMENT,
-                    sampler: {},
+                    storageTexture: {
+                        format: "rgba32float",
+                    },
                 },
             ],
         });
@@ -141,11 +148,11 @@ function initProgram() {
                 },
                 {
                     binding: 4,
-                    resource: collectionView,
+                    resource: previousFrameView,
                 },
                 {
                     binding: 5,
-                    resource: sampler,
+                    resource: currentFrameView,
                 },
             ],
         });
@@ -180,7 +187,7 @@ function initProgram() {
 }
 function render() {
     device.queue.writeBuffer(bufferLocations.resolutionBuffer, 0, new Float32Array([canvas.width, canvas.height]));
-    device.queue.writeBuffer(bufferLocations.cameraPosBuffer, 0, new Float32Array([0, 0, 3]));
+    device.queue.writeBuffer(bufferLocations.cameraPosBuffer, 0, new Float32Array([camera.x(), camera.y(), camera.z()]));
     device.queue.writeBuffer(bufferLocations.cameraLookAtBuffer, 0, new Float32Array([0, 0, 0]));
     device.queue.writeBuffer(bufferLocations.iterationBuffer, 0, new Float32Array([tick]));
     const commandEncoder = device.createCommandEncoder();
@@ -203,9 +210,9 @@ function render() {
     passEncoder.end();
     // Copy the rendering results from the swapchain into |cubeTexture|.
     commandEncoder.copyTextureToTexture({
-        texture: canvasTexture,
+        texture: textureLocations.currentFrameBuffer,
     }, {
-        texture: textureLocations.collectionBuffer,
+        texture: textureLocations.previousFrameBuffer,
     }, [canvas.width, canvas.height]);
     device.queue.submit([commandEncoder.finish()]);
 }
