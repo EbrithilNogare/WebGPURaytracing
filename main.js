@@ -180,7 +180,7 @@ function initProgram() {
 }
 function render() {
     device.queue.writeBuffer(bufferLocations.resolutionBuffer, 0, new Float32Array([canvas.width, canvas.height]));
-    device.queue.writeBuffer(bufferLocations.cameraPosBuffer, 0, new Float32Array([4 * Math.sin(0), 0.9, 4 * Math.cos(0)]));
+    device.queue.writeBuffer(bufferLocations.cameraPosBuffer, 0, new Float32Array([0, 0, 3]));
     device.queue.writeBuffer(bufferLocations.cameraLookAtBuffer, 0, new Float32Array([0, 0, 0]));
     device.queue.writeBuffer(bufferLocations.iterationBuffer, 0, new Float32Array([tick]));
     const commandEncoder = device.createCommandEncoder();

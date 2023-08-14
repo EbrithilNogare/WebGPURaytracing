@@ -196,7 +196,7 @@ function render() {
   device.queue.writeBuffer(
     bufferLocations.cameraPosBuffer,
     0,
-    new Float32Array([4 * Math.sin(0), 0.9, 4 * Math.cos(0)])
+    new Float32Array([0, 0, 3])
   );
   device.queue.writeBuffer(
     bufferLocations.cameraLookAtBuffer,
