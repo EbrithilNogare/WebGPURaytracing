@@ -1,5 +1,5 @@
 const SAMPLES: i32 = 1;
-const MAXBOUNCES: i32 = 32;
+const MAXBOUNCES: i32 = 8;
 
 @group(0) @binding(0) var<uniform> resolution : vec2f;
 @group(0) @binding(1) var<uniform> cameraPos : vec3f;
@@ -78,50 +78,29 @@ const strongLight:  Material = Material(vec3f(100.0, 100.0, 100.0 ),   0.0,  0.0
 const glowOrange:   Material = Material(vec3f(  1.7,   0.6,   0.01),   0.0,  0.0,  false, true );
 
 /**/ // switch
-const lightsCount = 3; // todo find a way to call .length
+const lightsCount = 1; // todo find a way to call .length
 const lights = array<Sphere, lightsCount>(
-	Sphere(vec3f( 0.5, 0.2, 1.5),  0.1, glowOrange),
-	Sphere(vec3f(-0.5, 0.2,-1.5),  0.1, glowOrange),
-	Sphere(vec3f( 0.0, 20,  0.0), 10.0, strongLight)
+	Sphere(vec3f( 0,.9,0),  0.1, weakLight),
 );
 
-const spheresCount = 25; // todo find a way to call .length
+const spheresCount = 2; // todo find a way to call .length
 const spheres = array<Sphere, spheresCount>(
-	Sphere(vec3f(-1.2, 0.5, 0.0), 0.5, solidIndigo),
-	Sphere(vec3f( 0.0, 0.5, 0.0), 0.5, glass),
-	Sphere(vec3f( 1.2, 0.5, 0.0), 0.5, metal),
-	Sphere(vec3f( 2.4, 0.5, 0.0), 0.3, roughtMetal),
-
-	Sphere(vec3f( 1.0, 0.1, 1.0), 0.1, solidYellow),
-	Sphere(vec3f(-1.0, 0.1, 1.0), 0.1, solidGreen),
-	Sphere(vec3f( 2.0, 0.2, 1.0), 0.2, solidRed),
-	Sphere(vec3f(-2.0, 0.1, 1.0), 0.1, glass),
-	Sphere(vec3f( 0.0, 0.1, 1.0), 0.1, glass),
-
-	Sphere(vec3f( 1.0, 0.2, 2.0), 0.2, solidWhite),
-	Sphere(vec3f(-1.0, 0.2, 2.0), 0.2, glass),
-	Sphere(vec3f( 2.0, 0.1, 2.0), 0.1, solidYellow),
-	Sphere(vec3f(-2.0, 0.1, 2.0), 0.1, solidGreen),
-	Sphere(vec3f( 0.0, 0.1, 2.0), 0.1, solidBlue),
-
-	Sphere(vec3f( 1.0, 0.1,-1.0), 0.1, glass),
-	Sphere(vec3f(-1.0, 0.1,-1.0), 0.1, solidBlue),
-	Sphere(vec3f( 2.0, 0.1,-1.0), 0.1, solidYellow),
-	Sphere(vec3f(-2.0, 0.1,-1.0), 0.1, solidGreen),
-	Sphere(vec3f( 0.0, 0.2,-1.0), 0.2, solidRed),
-
-	Sphere(vec3f( 1.0, 0.1,-2.0), 0.1, solidYellow),
-	Sphere(vec3f(-1.0, 0.1,-2.0), 0.1, solidGreen),
-	Sphere(vec3f( 2.0, 0.2,-2.0), 0.2, metal),
-	Sphere(vec3f(-2.0, 0.1,-2.0), 0.1, solidBlue),
-	Sphere(vec3f( 0.0, 0.1,-2.0), 0.1, glass),
-
-	Sphere(vec3f( 0.0,-255, 0.0), 255.0, ground) // ground
+	Sphere(vec3f( -.4, -.7, 0), .3, glass),
+	Sphere(vec3f( .4, -.7, 0), .3, metal),
 );
 
-const trianglesCount = 1;
+const trianglesCount = 10;
 const triangles = array<Triangle, trianglesCount>(
-	Triangle(vec3f(2.0, 0.2, 1.0), vec3f(-1.0, 0.1, 1.0), vec3f(0.0, 0.1, 2.0), solidWhite),
+	Triangle(vec3f(-1, 1, 1), vec3f(-1,-1, 1), vec3f(-1, 1,-1), cornellRed),
+	Triangle(vec3f(-1,-1, 1), vec3f(-1,-1,-1), vec3f(-1, 1,-1), cornellRed),
+	Triangle(vec3f( 1, 1, 1), vec3f( 1, 1,-1), vec3f( 1,-1, 1), cornellGreen),
+	Triangle(vec3f( 1,-1, 1), vec3f( 1, 1,-1), vec3f( 1,-1,-1), cornellGreen),
+	Triangle(vec3f( 1,-1,-1), vec3f( 1, 1,-1), vec3f(-1, 1,-1), cornellWhite),
+	Triangle(vec3f(-1,-1,-1), vec3f( 1,-1,-1), vec3f(-1, 1,-1), cornellWhite),
+	Triangle(vec3f(-1,-1, 1), vec3f( 1,-1,-1), vec3f(-1,-1,-1), solidWhite),
+	Triangle(vec3f( 1,-1,-1), vec3f(-1,-1, 1), vec3f( 1,-1, 1), solidWhite),
+	Triangle(vec3f(-1, 1, 1), vec3f(-1, 1,-1), vec3f( 1, 1,-1), solidWhite),
+	Triangle(vec3f( 1, 1,-1), vec3f( 1, 1, 1), vec3f(-1, 1, 1), solidWhite),
 );
 
 
@@ -293,7 +272,7 @@ fn LightHit(point: vec3f, normal: vec3f) -> vec3f {
 		
 		rec = WorldHit(ray);
         if(rec.material.emissive){
-            lightColor += rec.material.color / pow(rec.t, 3.0);
+            lightColor += rec.material.color / pow(rec.t, 2.0);
         }
 	}
 	return lightColor;	
