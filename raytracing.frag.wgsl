@@ -5,8 +5,9 @@ const MAXBOUNCES: i32 = 8;
 @group(0) @binding(1) var<uniform> cameraPos : vec3f;
 @group(0) @binding(2) var<uniform> cameraLookAt : vec3f;
 @group(0) @binding(3) var<uniform> iteration : f32;
-@group(0) @binding(4) var collection : texture_2d<f32>;
-@group(0) @binding(5) var mySampler : sampler;
+@group(0) @binding(4) var previousFrame : texture_2d<f32>;
+@group(0) @binding(5) var currentFrame : texture_storage_2d<rgba32float, write>;
+
 
 // ########### Constants ###########
 
@@ -272,7 +273,7 @@ fn LightHit(point: vec3f, normal: vec3f) -> vec3f {
 		
 		rec = WorldHit(ray);
         if(rec.material.emissive){
-            lightColor += rec.material.color / pow(rec.t, 2.0);
+            lightColor += rec.material.color / pow(rec.t, 3.0);
         }
 	}
 	return lightColor;	
@@ -372,18 +373,23 @@ fn main(
 	var gamma = 2.2;
 
 	var current = pow(tmpColor / f32(SAMPLES), vec3f(1.0 / gamma));
-
-	//var previous = textureSample(collection, mySampler, fragPosition.xy).xyz;
+	current = min(max(vec3f(0), current), vec3f(4)); // todo cheaty no fireflies
 
 	var previous = textureLoad(
-    	collection,
+    	previousFrame,
     	vec2<i32>((vec2(fragPosition.x,1-fragPosition.y)) * resolution.xy),
     	0
   	).xyz;
 
-	//return vec4(vec3(rand(42.4)), 1);
-
 	current = max(vec3f(0,0,0), current);
+	var finalColor = vec4(mix(previous, current, 1/iteration), 1.0);
 
-	return vec4(mix(previous, current, 1/iteration), 1.0);
+	textureStore(
+		currentFrame,
+		vec2<i32>((vec2(fragPosition.x,1-fragPosition.y)) * resolution.xy),
+		finalColor		
+	);
+
+	//return vec4(vec3(rand(42.4)), 1);
+	return finalColor;
 }
