@@ -23,8 +23,8 @@ let previousFrameView;
 let currentFrameView;
 let camera = {
     x: () => 0,
-    y: () => 0.9,
-    z: () => 4,
+    y: () => 0,
+    z: () => 3,
 };
 const F32_SIZE = 4;
 function init() {

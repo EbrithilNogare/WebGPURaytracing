@@ -13,8 +13,8 @@ let previousFrameView: GPUTextureView;
 let currentFrameView: GPUTextureView;
 let camera = {
   x: () => 0,
-  y: () => 0.9,
-  z: () => 4,
+  y: () => 0,
+  z: () => 3,
 };
 
 const F32_SIZE = 4;

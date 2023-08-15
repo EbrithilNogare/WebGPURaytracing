@@ -17,7 +17,8 @@ const PI: f32 = 3.1415926535897932384626433832795;
 
 var<private> coordinates : vec2f;
 
-// ########### Structs ###########
+
+// ########### Structs ########### {
 
 struct Ray {
     origin: vec3f,
@@ -47,36 +48,36 @@ struct Triangle {
 
 struct HitRecord {
     p: vec3f,         // position
-    normal: vec3f,
+    normal: vec3f,	 // normal from surface
     t: f32,          // distance
-    u: f32,
-    v: f32,
+    u: f32,			 // texture coordinate
+    v: f32,			 // texture coordinate
     frontFace: bool,
     material: Material,
 };
 
+
 // ########### Scene ###########
+//										 			   color         ,reflection,refraction,texture,emissive
+const ground:       Material = Material(vec3f(  0.3,  0.3,     0.3),       0.0,       0.0,   true, false);
+const glass:        Material = Material(vec3f(  1.0,  1.0,     1.0),       1.0,       1.5,  false, false);
+const metal:        Material = Material(vec3f(  1.0,  1.0,     1.0),       1.0,       0.0,  false, false);
+const roughtMetal:  Material = Material(vec3f(  1.0,  1.0,     1.0),       0.3,       0.0,  false, false);
 
-//                                                R     G         B  Reflect Refract Texture Emissive
-const ground:       Material = Material(vec3f(  0.3,  0.3,     0.3),   0.0,  0.0,   true, false);
-const glass:        Material = Material(vec3f(  1.0,  1.0,     1.0),   1.0,  1.5,  false, false);
-const metal:        Material = Material(vec3f(  1.0,  1.0,     1.0),   1.0,  0.0,  false, false);
-const roughtMetal:  Material = Material(vec3f(  1.0,  1.0,     1.0),   0.3,  0.0,  false, false);
+const solidIndigo:  Material = Material(vec3f(  0.3,  0.0,     0.5),       0.0,       0.0,  false, false);
+const solidGreen:   Material = Material(vec3f(  0.0,  1.0,     0.0),       0.0,       0.0,  false, false);
+const solidRed:     Material = Material(vec3f(  1.0,  0.0,     0.0),       0.0,       0.0,  false, false);
+const solidBlue:    Material = Material(vec3f(  0.0,  0.0,     1.0),       0.0,       0.0,  false, false);
+const solidYellow:  Material = Material(vec3f(  1.0,  1.0,     0.0),       0.0,       0.0,  false, false);
+const solidWhite:   Material = Material(vec3f(  1.0,  1.0,     1.0),       0.0,       0.0,  false, false);
+const cornellRed:   Material = Material(vec3f(  1.0, 0.01,    0.01),      0.01,       0.0,  false, false);
+const cornellGreen: Material = Material(vec3f( 0.01,  1.0,    0.01),      0.01,       0.0,  false, false);
+const cornellWhite: Material = Material(vec3f(  0.9,  0.9,     0.9),      0.01,       0.0,  false, false);
 
-const solidIndigo:  Material = Material(vec3f(  0.3,  0.0,     0.5),   0.0,  0.0,  false, false);
-const solidGreen:   Material = Material(vec3f(  0.0,  1.0,     0.0),   0.0,  0.0,  false, false);
-const solidRed:     Material = Material(vec3f(  1.0,  0.0,     0.0),   0.0,  0.0,  false, false);
-const solidBlue:    Material = Material(vec3f(  0.0,  0.0,     1.0),   0.0,  0.0,  false, false);
-const solidYellow:  Material = Material(vec3f(  1.0,  1.0,     0.0),   0.0,  0.0,  false, false);
-const solidWhite:   Material = Material(vec3f(  1.0,  1.0,     1.0),   0.0,  0.0,  false, false);
-const cornellRed:   Material = Material(vec3f(  1.0, 0.01,    0.01),  0.01,  0.0,  false, false);
-const cornellGreen: Material = Material(vec3f( 0.01,  1.0,    0.01),  0.01,  0.0,  false, false);
-const cornellWhite: Material = Material(vec3f(  0.9,  0.9,     0.9),  0.01,  0.0,  false, false);
-
-const weakLight:    Material = Material(vec3f(  1.0,   1.0,   1.0 ),   0.0,  0.0,  false, true );
-const light:        Material = Material(vec3f( 10.0,  10.0,  10.0 ),   0.0,  0.0,  false, true );
-const strongLight:  Material = Material(vec3f(100.0, 100.0, 100.0 ),   0.0,  0.0,  false, true );
-const glowOrange:   Material = Material(vec3f(  1.7,   0.6,   0.01),   0.0,  0.0,  false, true );
+const weakLight:    Material = Material(vec3f(  0.5,   0.5,   0.5 ),       0.0,       0.0,  false, true );
+const light:        Material = Material(vec3f( 10.0,  10.0,  10.0 ),       0.0,       0.0,  false, true );
+const strongLight:  Material = Material(vec3f(100.0, 100.0, 100.0 ),       0.0,       0.0,  false, true );
+const glowOrange:   Material = Material(vec3f(  1.7,   0.6,   0.01),       0.0,       0.0,  false, true );
 
 /**/ // switch
 const lightsCount = 1; // todo find a way to call .length
@@ -98,10 +99,10 @@ const triangles = array<Triangle, trianglesCount>(
 	Triangle(vec3f( 1,-1, 1), vec3f( 1, 1,-1), vec3f( 1,-1,-1), cornellGreen),
 	Triangle(vec3f( 1,-1,-1), vec3f( 1, 1,-1), vec3f(-1, 1,-1), cornellWhite),
 	Triangle(vec3f(-1,-1,-1), vec3f( 1,-1,-1), vec3f(-1, 1,-1), cornellWhite),
-	Triangle(vec3f(-1,-1, 1), vec3f( 1,-1,-1), vec3f(-1,-1,-1), solidWhite),
-	Triangle(vec3f( 1,-1,-1), vec3f(-1,-1, 1), vec3f( 1,-1, 1), solidWhite),
-	Triangle(vec3f(-1, 1, 1), vec3f(-1, 1,-1), vec3f( 1, 1,-1), solidWhite),
-	Triangle(vec3f( 1, 1,-1), vec3f( 1, 1, 1), vec3f(-1, 1, 1), solidWhite),
+	Triangle(vec3f(-1,-1, 1), vec3f( 1,-1,-1), vec3f(-1,-1,-1), cornellWhite),
+	Triangle(vec3f( 1,-1,-1), vec3f(-1,-1, 1), vec3f( 1,-1, 1), cornellWhite),
+	Triangle(vec3f(-1, 1, 1), vec3f(-1, 1,-1), vec3f( 1, 1,-1), cornellWhite),
+	Triangle(vec3f( 1, 1,-1), vec3f( 1, 1, 1), vec3f(-1, 1, 1), cornellWhite),
 );
 
 
@@ -289,6 +290,11 @@ fn rayColor(_ray: Ray) -> vec3f {
 
 		var rec = WorldHit(ray);
 
+		if(rec.t >= INFINITY){ // nothing hitted
+			rayColor = vec3f(0, 0, 0);
+			break;
+		}
+
 		var materialColor = rec.material.color;
 		if(rec.material.texture && sin(16.0 * rec.p.x) * sin(16.0 * rec.p.z) < -0.015){
 			materialColor /= 8.0;
@@ -308,25 +314,26 @@ fn rayColor(_ray: Ray) -> vec3f {
 			lightAdditive += rayColor * light * materialColor * (1.0 - rec.material.reflection);
 		}
 
-		if(rec.t >= INFINITY){ // nothing hitted
-			rayColor = vec3f(0, 0, 0);
-			break;
-		}
-
-		var targetColor: vec3f;
+		var nextRayDirection: vec3f;
 		if(rec.material.refraction > 0.0){ // glass
 			var refraction_ratio = select(rec.material.refraction, 1.0 / rec.material.refraction, rec.frontFace);
 			var unit_direction = normalize(ray.direction);
-			targetColor = refract(unit_direction, rec.normal, refraction_ratio);
+			nextRayDirection = refract(unit_direction, rec.normal, refraction_ratio);
 		} else{
 			// mirror
 			var targetReflect = reflect(ray.direction, rec.normal);
 			// diffuse
-			var targetDiffuse = rec.normal + random_in_hemisphere(rec.normal, rec.t + f32(depth));
-			targetColor = mix(targetDiffuse, targetReflect, rec.material.reflection);
+			var targetDiffuse = random_in_hemisphere(rec.normal, rec.t + f32(depth));
+			if(rand(rec.t + f32(depth)) < rec.material.reflection)
+			{
+				nextRayDirection = targetReflect;
+			}
+			else{
+				nextRayDirection = targetDiffuse;
+			}
 		}
-		ray = Ray(rec.p, targetColor);
 
+		ray = Ray(rec.p, nextRayDirection);
 		rayColor *= materialColor;
 	}
 	return lightAdditive;
@@ -373,7 +380,7 @@ fn main(
 	var gamma = 2.2;
 
 	var current = pow(tmpColor / f32(SAMPLES), vec3f(1.0 / gamma));
-	current = min(max(vec3f(0), current), vec3f(4)); // todo cheaty no fireflies
+	current = clamp(current, vec3f(0), vec3f(16)); // todo cheaty no fireflies
 
 	var previous = textureLoad(
     	previousFrame,
