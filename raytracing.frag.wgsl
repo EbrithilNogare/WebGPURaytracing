@@ -47,9 +47,9 @@ struct Triangle {
 };
 
 struct HitRecord {
-    p: vec3f,         // position
+    position: vec3f,         // position
     normal: vec3f,	 // normal from surface
-    t: f32,          // distance
+    distance: f32,          // distance
     u: f32,			 // texture coordinate
     v: f32,			 // texture coordinate
     frontFace: bool,
@@ -108,16 +108,13 @@ const triangles = array<Triangle, trianglesCount>(
 
 // ########### Common functions ###########
 
-fn unitVector(v: vec3f) -> vec3f {
-    return v / length(v);
-}
-
 fn at(ray: Ray, t: f32) -> vec3f {
 	return ray.origin + t * ray.direction;
 }
 
+// random from 0 to 1
 fn rand(seed: f32) -> f32 {
-    return fract(sin(dot(vec2(seed + 1 / iteration) * coordinates, vec2(12.9898, 78.233))) * 43758.5453);
+    return fract(sin(dot(vec2(seed, iteration) * coordinates, vec2(12.9898, 78.233))) * 43758.5453);
 }
 
 fn randMM(seed: f32, min: f32, max: f32) -> f32 {
@@ -187,16 +184,16 @@ fn hitSphere(sphere: Sphere, ray: Ray, tMin: f32, tMax: f32, rec: ptr<function, 
         }
     }
 
-	(*rec).t = root;
-	(*rec).p = at(ray, (*rec).t);
+	(*rec).distance = root;
+	(*rec).position = at(ray, (*rec).distance);
 
-	var outward_normal = ((*rec).p - sphere.center) / sphere.radius;
+	var outward_normal = ((*rec).position - sphere.center) / sphere.radius;
 	(*rec).frontFace = dot(ray.direction, outward_normal) < 0.;
 	(*rec).normal = select(-outward_normal, outward_normal, (*rec).frontFace);
 	(*rec).material = sphere.material;
 
-	var theta = acos(-(*rec).p.y);
-	var phi = atan2(-(*rec).p.z, (*rec).p.x) + PI;
+	var theta = acos(-(*rec).position.y);
+	var phi = atan2(-(*rec).position.z, (*rec).position.x) + PI;
 	(*rec).u = phi / (2.0 * PI);
 	(*rec).v = theta / PI;
 
@@ -227,8 +224,8 @@ fn hitTriangle(triangle: Triangle, ray: Ray, tMin: f32, tMax: f32, rec: ptr<func
 		return false;
 	}
 
-	(*rec).t = hit;
-	(*rec).p = at(ray, (*rec).t);
+	(*rec).distance = hit;
+	(*rec).position = at(ray, (*rec).distance);
 	(*rec).frontFace = dot(ray.direction, triangleNormal) < 0.;
 	(*rec).normal = triangleNormal;
 	(*rec).material = triangle.material;
@@ -243,15 +240,15 @@ fn WorldHit(ray: Ray) -> HitRecord{
 	var rec = HitRecord(vec3(0.0),vec3(0.0), INFINITY, 0.0, 0.0, false, ground);
 
 	for(var i: i32 = 0; i < spheresCount; i++){
-		hitSphere(spheres[i], ray, EPSILON, rec.t, &rec);
+		hitSphere(spheres[i], ray, EPSILON, rec.distance, &rec);
     }
 	
 	for(var i: i32 = 0; i < trianglesCount; i++){
-		hitTriangle(triangles[i], ray, EPSILON, rec.t, &rec);
+		hitTriangle(triangles[i], ray, EPSILON, rec.distance, &rec);
     }
 		
 	for(var i: i32 = 0; i < lightsCount; i++){
-		hitSphere(lights[i], ray, EPSILON, rec.t, &rec);
+		hitSphere(lights[i], ray, EPSILON, rec.distance, &rec);
     }
 		
 	return rec;	
@@ -274,7 +271,7 @@ fn LightHit(point: vec3f, normal: vec3f) -> vec3f {
 		
 		rec = WorldHit(ray);
         if(rec.material.emissive){
-            lightColor += rec.material.color / pow(rec.t, 3.0);
+            lightColor += rec.material.color / pow(rec.distance, 3.0);
         }
 	}
 	return lightColor;	
@@ -290,17 +287,17 @@ fn rayColor(_ray: Ray) -> vec3f {
 
 		var rec = WorldHit(ray);
 
-		if(rec.t >= INFINITY){ // nothing hitted
+		if(rec.distance >= INFINITY){ // nothing hitted
 			rayColor = vec3f(0, 0, 0);
 			break;
 		}
 
 		var materialColor = rec.material.color;
-		if(rec.material.texture && sin(16.0 * rec.p.x) * sin(16.0 * rec.p.z) < -0.015){
+		if(rec.material.texture && sin(16.0 * rec.position.x) * sin(16.0 * rec.position.z) < -0.015){
 			materialColor /= 8.0;
         }
 
-		totalDistance += rec.t;
+		totalDistance += rec.distance;
 
 		if(rec.material.emissive){ // light
 			rayColor *= materialColor / pow(totalDistance, 3.0);
@@ -308,7 +305,7 @@ fn rayColor(_ray: Ray) -> vec3f {
 			break;
 		}
 
-		var light = LightHit(rec.p, rec.normal);
+		var light = LightHit(rec.position, rec.normal);
 
 		if(rec.material.refraction == 0.0){ // light on solid
 			lightAdditive += rayColor * light * materialColor * (1.0 - rec.material.reflection);
@@ -323,8 +320,8 @@ fn rayColor(_ray: Ray) -> vec3f {
 			// mirror
 			var targetReflect = reflect(ray.direction, rec.normal);
 			// diffuse
-			var targetDiffuse = random_in_hemisphere(rec.normal, rec.t + f32(depth));
-			if(rand(rec.t + f32(depth)) < rec.material.reflection)
+			var targetDiffuse = random_in_hemisphere(rec.normal, rec.distance + f32(depth));
+			if(rand(rec.distance + f32(depth)) < rec.material.reflection)
 			{
 				nextRayDirection = targetReflect;
 			}
@@ -333,7 +330,7 @@ fn rayColor(_ray: Ray) -> vec3f {
 			}
 		}
 
-		ray = Ray(rec.p, nextRayDirection);
+		ray = Ray(rec.position, nextRayDirection);
 		rayColor *= materialColor;
 	}
 	return lightAdditive;
