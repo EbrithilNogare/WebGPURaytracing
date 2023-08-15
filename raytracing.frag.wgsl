@@ -58,31 +58,32 @@ struct HitRecord {
 
 
 // ########### Scene ###########
-//										 			   color         ,reflection,refraction,texture,emissive
-const ground:       Material = Material(vec3f(  0.3,  0.3,     0.3),       0.0,       0.0,   true, false);
-const glass:        Material = Material(vec3f(  1.0,  1.0,     1.0),       1.0,       1.5,  false, false);
-const metal:        Material = Material(vec3f(  1.0,  1.0,     1.0),       1.0,       0.0,  false, false);
-const roughtMetal:  Material = Material(vec3f(  1.0,  1.0,     1.0),       0.3,       0.0,  false, false);
+// Materials
+//										 			   color        ,reflection,refraction,texture,emissive
+const ground:       Material = Material(vec3f(  0.3,   0.3,   0.3),       0.0,       0.0,   true, false);
+const glass:        Material = Material(vec3f(  1.0,   1.0,   1.0),       1.0,       1.5,  false, false);
+const metal:        Material = Material(vec3f(  1.0,   1.0,   1.0),       1.0,       0.0,  false, false);
+const roughtMetal:  Material = Material(vec3f(  1.0,   1.0,   1.0),       0.3,       0.0,  false, false);
 
-const solidIndigo:  Material = Material(vec3f(  0.3,  0.0,     0.5),       0.0,       0.0,  false, false);
-const solidGreen:   Material = Material(vec3f(  0.0,  1.0,     0.0),       0.0,       0.0,  false, false);
-const solidRed:     Material = Material(vec3f(  1.0,  0.0,     0.0),       0.0,       0.0,  false, false);
-const solidBlue:    Material = Material(vec3f(  0.0,  0.0,     1.0),       0.0,       0.0,  false, false);
-const solidYellow:  Material = Material(vec3f(  1.0,  1.0,     0.0),       0.0,       0.0,  false, false);
-const solidWhite:   Material = Material(vec3f(  1.0,  1.0,     1.0),       0.0,       0.0,  false, false);
-const cornellRed:   Material = Material(vec3f(  1.0, 0.01,    0.01),      0.01,       0.0,  false, false);
-const cornellGreen: Material = Material(vec3f( 0.01,  1.0,    0.01),      0.01,       0.0,  false, false);
-const cornellWhite: Material = Material(vec3f(  0.9,  0.9,     0.9),      0.01,       0.0,  false, false);
+const solidIndigo:  Material = Material(vec3f(  0.3,   0.0,   0.5),       0.0,       0.0,  false, false);
+const solidGreen:   Material = Material(vec3f(  0.0,   1.0,   0.0),       0.0,       0.0,  false, false);
+const solidRed:     Material = Material(vec3f(  1.0,   0.0,   0.0),       0.0,       0.0,  false, false);
+const solidBlue:    Material = Material(vec3f(  0.0,   0.0,   1.0),       0.0,       0.0,  false, false);
+const solidYellow:  Material = Material(vec3f(  1.0,   1.0,   0.0),       0.0,       0.0,  false, false);
+const solidWhite:   Material = Material(vec3f(  1.0,   1.0,   1.0),       0.0,       0.0,  false, false);
+const cornellRed:   Material = Material(vec3f(  .65,  0.05,  0.05),         0,       0.0,  false, false);
+const cornellGreen: Material = Material(vec3f(  .12,   .45,   .15),         0,       0.0,  false, false);
+const cornellWhite: Material = Material(vec3f(  .73,   .73,   .73),         0,       0.0,  false, false);
 
-const weakLight:    Material = Material(vec3f(  0.5,   0.5,   0.5 ),       0.0,       0.0,  false, true );
-const light:        Material = Material(vec3f( 10.0,  10.0,  10.0 ),       0.0,       0.0,  false, true );
-const strongLight:  Material = Material(vec3f(100.0, 100.0, 100.0 ),       0.0,       0.0,  false, true );
-const glowOrange:   Material = Material(vec3f(  1.7,   0.6,   0.01),       0.0,       0.0,  false, true );
+const weakLight:    Material = Material(vec3f(  0.2,   0.2,   0.2),       0.0,       0.0,  false, true );
+const light:        Material = Material(vec3f( 10.0,  10.0,  10.0),       0.0,       0.0,  false, true );
+const strongLight:  Material = Material(vec3f(100.0, 100.0, 100.0),       0.0,       0.0,  false, true );
+const glowOrange:   Material = Material(vec3f(  1.7,   0.6,  0.01),       0.0,       0.0,  false, true );
 
-/**/ // switch
+// Lights
 const lightsCount = 1; // todo find a way to call .length
 const lights = array<Sphere, lightsCount>(
-	Sphere(vec3f( 0,.9,0),  0.1, weakLight),
+	Sphere(vec3f( 0,.9,0),  0.01, weakLight),
 );
 
 const spheresCount = 2; // todo find a way to call .length
@@ -93,10 +94,10 @@ const spheres = array<Sphere, spheresCount>(
 
 const trianglesCount = 10;
 const triangles = array<Triangle, trianglesCount>(
-	Triangle(vec3f(-1, 1, 1), vec3f(-1,-1, 1), vec3f(-1, 1,-1), cornellRed),
-	Triangle(vec3f(-1,-1, 1), vec3f(-1,-1,-1), vec3f(-1, 1,-1), cornellRed),
-	Triangle(vec3f( 1, 1, 1), vec3f( 1, 1,-1), vec3f( 1,-1, 1), cornellGreen),
-	Triangle(vec3f( 1,-1, 1), vec3f( 1, 1,-1), vec3f( 1,-1,-1), cornellGreen),
+	Triangle(vec3f(-1, 1, 1), vec3f(-1,-1, 1), vec3f(-1, 1,-1), cornellGreen),
+	Triangle(vec3f(-1,-1, 1), vec3f(-1,-1,-1), vec3f(-1, 1,-1), cornellGreen),
+	Triangle(vec3f( 1, 1, 1), vec3f( 1, 1,-1), vec3f( 1,-1, 1), cornellRed),
+	Triangle(vec3f( 1,-1, 1), vec3f( 1, 1,-1), vec3f( 1,-1,-1), cornellRed),
 	Triangle(vec3f( 1,-1,-1), vec3f( 1, 1,-1), vec3f(-1, 1,-1), cornellWhite),
 	Triangle(vec3f(-1,-1,-1), vec3f( 1,-1,-1), vec3f(-1, 1,-1), cornellWhite),
 	Triangle(vec3f(-1,-1, 1), vec3f( 1,-1,-1), vec3f(-1,-1,-1), cornellWhite),
@@ -271,7 +272,7 @@ fn LightHit(point: vec3f, normal: vec3f) -> vec3f {
 		
 		rec = WorldHit(ray);
         if(rec.material.emissive){
-            lightColor += rec.material.color / pow(rec.distance, 3.0);
+            lightColor += rec.material.color / pow(rec.distance, 2.0);
         }
 	}
 	return lightColor;	
@@ -293,14 +294,14 @@ fn rayColor(_ray: Ray) -> vec3f {
 		}
 
 		var materialColor = rec.material.color;
-		if(rec.material.texture && sin(16.0 * rec.position.x) * sin(16.0 * rec.position.z) < -0.015){
+		if(rec.material.texture && sin(16.0 * rec.position.x) * sin(16.0 * rec.position.z) < -0.0001){
 			materialColor /= 8.0;
         }
 
 		totalDistance += rec.distance;
 
 		if(rec.material.emissive){ // light
-			rayColor *= materialColor / pow(totalDistance, 3.0);
+			rayColor *= materialColor / pow(totalDistance, 2.0);
 			lightAdditive += rayColor;
 			break;
 		}
