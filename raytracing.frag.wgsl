@@ -81,9 +81,9 @@ const strongLight:  Material = Material(vec3f(100.0, 100.0, 100.0),       0.0,  
 const glowOrange:   Material = Material(vec3f(  1.7,   0.6,  0.01),       0.0,       0.0,  false, true );
 
 // Lights
-const lightsCount = 1; // todo find a way to call .length
-const lights = array<Sphere, lightsCount>(
-	Sphere(vec3f( 0,.9,0),  0.01, weakLight),
+const sphereLightsCount = 1; // todo find a way to call .length
+const sphereLights = array<Sphere, sphereLightsCount>(
+	Sphere(vec3f( 0,1.9,0),  0.01, weakLight),
 );
 
 const spheresCount = 2; // todo find a way to call .length
@@ -106,6 +106,12 @@ const triangles = array<Triangle, trianglesCount>(
 	Triangle(vec3f( 1, 1,-1), vec3f( 1, 1, 1), vec3f(-1, 1, 1), cornellWhite),
 );
 
+
+const triangleLightsCount = 2;
+const triangleLights = array<Triangle, triangleLightsCount>(
+	Triangle(vec3f(-.3, .99, .3), vec3f(-.3, .99,-.3), vec3f( .3, .99,-.3), weakLight),
+	Triangle(vec3f( .3, .99,-.3), vec3f( .3, .99, .3), vec3f(-.3, .99, .3), weakLight),
+);
 
 // ########### Common functions ###########
 
@@ -161,6 +167,23 @@ fn random_in_hemisphere(normal: vec3f, seed: f32) -> vec3f {
     } else {
         return -in_unit_sphere;
     }
+}
+
+fn random_in_triangle(seed: f32) -> vec2f {
+	var random2D = rand2(seed);
+	if(random2D.x + random2D.y < 1){
+		return random2D;
+	} else {
+		return vec2f(1) - random2D;	
+	};
+}
+
+fn random_in_specific_triangle(seed: f32, p0: vec3f, p1: vec3f, p2:vec3f) -> vec3f {
+	var randomHalf2D = random_in_triangle(seed);
+	var a = p1 - p0;
+	var b = p2 - p0;
+	var w = randomHalf2D.x * a + randomHalf2D.y * b;
+	return w + p0;
 }
 
 // ########### Raytracing functions ###########
@@ -225,9 +248,14 @@ fn hitTriangle(triangle: Triangle, ray: Ray, tMin: f32, tMax: f32, rec: ptr<func
 		return false;
 	}
 
+	var isFrontFace = dot(ray.direction, triangleNormal) < 0.;
+	if(!isFrontFace){
+		return false;
+	}
+
 	(*rec).distance = hit;
 	(*rec).position = at(ray, (*rec).distance);
-	(*rec).frontFace = dot(ray.direction, triangleNormal) < 0.;
+	(*rec).frontFace = isFrontFace;
 	(*rec).normal = triangleNormal;
 	(*rec).material = triangle.material;
 	(*rec).u = 0;
@@ -243,13 +271,15 @@ fn WorldHit(ray: Ray) -> HitRecord{
 	for(var i: i32 = 0; i < spheresCount; i++){
 		hitSphere(spheres[i], ray, EPSILON, rec.distance, &rec);
     }
-	
 	for(var i: i32 = 0; i < trianglesCount; i++){
 		hitTriangle(triangles[i], ray, EPSILON, rec.distance, &rec);
     }
 		
-	for(var i: i32 = 0; i < lightsCount; i++){
-		hitSphere(lights[i], ray, EPSILON, rec.distance, &rec);
+	for(var i: i32 = 0; i < sphereLightsCount; i++){
+		hitSphere(sphereLights[i], ray, EPSILON, rec.distance, &rec);
+    }
+	for(var i: i32 = 0; i < triangleLightsCount; i++){
+		hitTriangle(triangleLights[i], ray, EPSILON, rec.distance, &rec);
     }
 		
 	return rec;	
@@ -259,12 +289,17 @@ fn directionToLight(light: Sphere, point: vec3f) -> vec3f {
 	return normalize(light.center + light.radius * random_in_unit_sphere(point.x) - point);
 }
 
+fn directionToTrianlgeLight(light: Triangle, point: vec3f) -> vec3f {
+	return normalize(random_in_specific_triangle(point.x, light.p0, light.p1, light.p2) - point);
+}
+
 fn LightHit(point: vec3f, normal: vec3f) -> vec3f {
 	var lightColor = vec3f(0);
 	var rec = HitRecord(vec3(0.0),vec3(0.0), INFINITY, 0.0, 0.0, false, ground);
-	for(var i: i32 = 0; i < lightsCount; i++){
+
+	for(var i: i32 = 0; i < sphereLightsCount; i++){
 		
-		var ray = Ray(point, directionToLight(lights[i], point));
+		var ray = Ray(point, directionToLight(sphereLights[i], point));
 		
 		if(dot(normal, ray.direction) <= 0.0){
 			continue;
@@ -275,6 +310,21 @@ fn LightHit(point: vec3f, normal: vec3f) -> vec3f {
             lightColor += rec.material.color / pow(rec.distance, 2.0);
         }
 	}
+	
+	for(var i: i32 = 0; i < triangleLightsCount; i++){
+		
+		var ray = Ray(point, directionToTrianlgeLight(triangleLights[i], point));
+		
+		if(dot(normal, ray.direction) <= 0.0){
+			continue;
+        }
+
+		rec = WorldHit(ray);
+        if(rec.material.emissive){
+            lightColor += rec.material.color / pow(rec.distance, 2.0);
+        }
+	}
+
 	return lightColor;	
 }
 
@@ -305,11 +355,10 @@ fn rayColor(_ray: Ray) -> vec3f {
 			lightAdditive += rayColor;
 			break;
 		}
-
-		var light = LightHit(rec.position, rec.normal);
-
-		if(rec.material.refraction == 0.0){ // light on solid
-			lightAdditive += rayColor * light * materialColor * (1.0 - rec.material.reflection);
+		var lightColor = LightHit(rec.position, rec.normal);
+		
+		if(rec.material.refraction == 0.0){ // todo, specular on glass is what we want
+			lightAdditive += rayColor * lightColor * materialColor * (1.0 - rec.material.reflection);
 		}
 
 		var nextRayDirection: vec3f;
