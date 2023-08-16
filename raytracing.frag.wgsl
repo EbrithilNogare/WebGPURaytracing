@@ -320,7 +320,7 @@ fn LightHit(point: vec3f, normal: vec3f) -> vec3f {
 			continue;
         }
 
-		var lightCosine = abs(directionToLight.y);
+		var lightCosine = abs(normalize(directionToLight).y);
 		if(lightCosine < EPSILON){
 			continue;
 		}
