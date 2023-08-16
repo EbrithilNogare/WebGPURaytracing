@@ -249,9 +249,9 @@ fn hitTriangle(triangle: Triangle, ray: Ray, tMin: f32, tMax: f32, rec: ptr<func
 	}
 
 	var isFrontFace = dot(ray.direction, triangleNormal) < 0.;
-	if(!isFrontFace){
-		return false;
-	}
+	//if(!isFrontFace){
+	//	return false;
+	//}
 
 	(*rec).distance = hit;
 	(*rec).position = at(ray, (*rec).distance);
@@ -313,15 +313,21 @@ fn LightHit(point: vec3f, normal: vec3f) -> vec3f {
 	
 	for(var i: i32 = 0; i < triangleLightsCount; i++){
 		
-		var ray = Ray(point, directionToTrianlgeLight(triangleLights[i], point));
+		var directionToLight = directionToTrianlgeLight(triangleLights[i], point);
+		var ray = Ray(point, directionToLight);
 		
 		if(dot(normal, ray.direction) <= 0.0){
 			continue;
         }
 
+		var lightCosine = abs(directionToLight.y);
+		if(lightCosine < EPSILON){
+			continue;
+		}
+
 		rec = WorldHit(ray);
-        if(rec.material.emissive){
-            lightColor += rec.material.color / pow(rec.distance, 2.0);
+        if(rec.material.emissive){ // todo if hitted different light
+            lightColor += rec.material.color / pow(rec.distance, 2.0) * lightCosine;
         }
 	}
 
@@ -427,7 +433,7 @@ fn main(
 	var gamma = 2.2;
 
 	var current = pow(tmpColor / f32(SAMPLES), vec3f(1.0 / gamma));
-	current = clamp(current, vec3f(0), vec3f(16)); // todo cheaty no fireflies
+	//current = clamp(current, vec3f(0), vec3f(1000)); // todo cheaty no fireflies
 
 	var previous = textureLoad(
     	previousFrame,
