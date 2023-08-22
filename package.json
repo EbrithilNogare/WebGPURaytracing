@@ -4,13 +4,12 @@
   "description": "ray tracing in webgpu",
   "main": "main.js",
   "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1",
-    "dev": "tsc --watch",
-    "build": "tsc"
+    "start": "webpack-dev-server --open --mode development",
+    "build": "webpack --mode production"
   },
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/EbrithilNogare/WebGPURaytracing.git"
+    "url": "https://github.com/EbrithilNogare/WebGPURaytracing.git"
   },
   "keywords": [],
   "author": "",
@@ -20,7 +19,14 @@
   },
   "homepage": "https://github.com/EbrithilNogare/WebGPURaytracing#readme",
   "dependencies": {
-    "@webgpu/types": "^0.1.34",
-    "typescript": "^5.1.6"
+    "@webgpu/types": "^0.1.34"
+  },
+  "devDependencies": {
+    "raw-loader": "^4.0.2",
+    "ts-loader": "^9.4.4",
+    "typescript": "^5.1.6",
+    "webpack": "^5.88.2",
+    "webpack-cli": "^5.1.4",
+    "webpack-dev-server": "^4.15.1"
   }
 }

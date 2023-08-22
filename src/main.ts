@@ -1,3 +1,6 @@
+import vertexShaderText from "./square.vert.wgsl";
+import fragmentShaderText from "./raytracing.frag.wgsl";
+
 let canvas: HTMLCanvasElement;
 let context: GPUCanvasContext;
 let device: GPUDevice;
@@ -115,6 +118,7 @@ const triangleLights = [
 	new Triangle([ .3, .99,-.3], [ .3, .99, .3], [-.3, .99, .3], "weakLight"),
 ];
 
+window.addEventListener("load", init);
 async function init() {
   const adapter =
     (await navigator.gpu.requestAdapter()) ?? throwExpression("no adapter");
@@ -139,18 +143,6 @@ async function init() {
 }
 
 async function initProgram() {
-  let vertexShaderText = await fetch("square.vert.wgsl")
-    .then((response) => response.text())
-    .catch(() => {
-      throw "cannot load square.vert.wgsl";
-    });
-
-  let fragmentShaderText = await fetch("raytracing.frag.wgsl")
-    .then((response) => response.text())
-    .catch(() => {
-      throw "cannot load raytracing.frag.wgsl";
-    });
-
   const presentationFormat = navigator.gpu.getPreferredCanvasFormat();
 
   context.configure({
