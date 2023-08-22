@@ -24,7 +24,8 @@ jobs:
     - name: Build build 🔧
       run: |
         npm install
-        npx webpack
+        npm run build
+        cp -r public/ dist/
 
     - name: Deploy 🚀
       uses: JamesIves/github-pages-deploy-action@v4
