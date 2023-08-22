@@ -17,7 +17,105 @@ let camera = {
   z: () => 3,
 };
 
-const F32_SIZE = 4;
+const F16_ALIGNMENT = 2;
+const F32_ALIGNMENT = 4;
+const VEC2_ALIGNMENT = 8;
+const VEC3_ALIGNMENT = 16;
+// largest item is taken foor an alignment
+const materialInShaderSize = 2 * VEC3_ALIGNMENT;
+const sphereInShaderSize = 2 * VEC3_ALIGNMENT;
+const triangleInShaderSize = 3 * VEC3_ALIGNMENT;
+
+class Triangle{
+  p0: number[];
+  p1: number[];
+  p2: number[];
+  material: string;
+  constructor(p0: number[], p1: number[], p2: number[], material: string){
+    this.p0 = p0;
+    this.p1 = p1;
+    this.p2 = p2;
+    this.material = material;
+  }
+  toAlignedArray = () => [...this.p0, 0, ...this.p1, 0, ...this.p2, materialNameToNumber(this.material)]
+}
+
+class Sphere{
+    center: number[];
+    radius: number;
+    material: string;
+  constructor(center: number[], radius: number, material: string){
+    this.center = center;
+    this.radius = radius;
+    this.material = material;
+  }
+  toAlignedArray = () => [...this.center, this.radius, materialNameToNumber(this.material), 0, 0, 0]
+}
+
+class Material{
+  color: number[];
+  reflection: number;
+  refraction: number;
+  texture: number; // -1 is no texture
+  emissive: number; // 0 = non emisive
+  constructor(color: number[], reflection: number, refraction: number, texture: number, emissive: number){
+    this.color = color;
+    this.reflection = reflection;
+    this.refraction = refraction;
+    this.texture = texture;
+    this.emissive = emissive;
+  }
+  toAlignedArray = () => [...this.color, this.reflection, this.refraction, this.texture, this.emissive, 0]
+}
+
+function materialNameToNumber(materialName: string){
+  return Object.keys(materials).indexOf(materialName)
+}
+
+const materials: Record<string, Material> = {
+  ground:       new Material([  0.3,   0.3,   0.3],       0.0,       0.0,   0, 0),
+  glass:        new Material([  1.0,   1.0,   1.0],       1.0,       1.5,  -1, 0),
+  metal:        new Material([  1.0,   1.0,   1.0],       1.0,       0.0,  -1, 0),
+  roughtMetal:  new Material([  1.0,   1.0,   1.0],       0.3,       0.0,  -1, 0),
+  solidIndigo:  new Material([  0.3,   0.0,   0.5],       0.0,       0.0,  -1, 0),
+  solidGreen:   new Material([  0.0,   1.0,   0.0],       0.0,       0.0,  -1, 0),
+  solidRed:     new Material([  1.0,   0.0,   0.0],       0.0,       0.0,  -1, 0),
+  solidBlue:    new Material([  0.0,   0.0,   1.0],       0.0,       0.0,  -1, 0),
+  solidYellow:  new Material([  1.0,   1.0,   0.0],       0.0,       0.0,  -1, 0),
+  solidWhite:   new Material([  1.0,   1.0,   1.0],       0.0,       0.0,  -1, 0),
+  cornellRed:   new Material([  .65,  0.05,  0.05],         0,       0.0,  -1, 0),
+  cornellGreen: new Material([  .12,   .45,   .15],         0,       0.0,  -1, 0),
+  cornellWhite: new Material([  .73,   .73,   .73],         0,       0.0,  -1, 0),
+  weakLight:    new Material([  0.2,   0.2,   0.2],       0.0,       0.0,  -1, 1),
+  light:        new Material([ 10.0,  10.0,  10.0],       0.0,       0.0,  -1, 1),
+  strongLight:  new Material([100.0, 100.0, 100.0],       0.0,       0.0,  -1, 1),
+  glowOrange:   new Material([  1.7,   0.6,  0.01],       0.0,       0.0,  -1, 1),
+};
+const sphereLights = [
+  new Sphere([0,1.9,0],  0.01, "weakLight"),
+  new Sphere([0,1.9,0],  0.02, "weakLight"),
+];
+const spheres = [
+	new Sphere([-.4, -.7, 0], .3, "glass"),
+	new Sphere([ .4, -.7, 0], .3, "metal"),
+];
+const triangles = [
+	//new Triangle([111,2,3],[4,5, 6], [7, 8,9], "cornellGreen"),
+  new Triangle([-1, 1, 1],[-1,-1, 1], [-1, 1,-1], "cornellGreen"),
+	new Triangle([-1,-1, 1],[-1,-1,-1], [-1, 1,-1], "cornellGreen"),
+	new Triangle([ 1, 1, 1],[ 1, 1,-1], [ 1,-1, 1], "cornellRed"),
+  new Triangle([ 1,-1, 1],[ 1, 1,-1], [ 1,-1,-1], "cornellRed"),
+	new Triangle([ 1,-1,-1],[ 1, 1,-1], [-1, 1,-1], "cornellWhite"),
+	new Triangle([-1,-1,-1],[ 1,-1,-1], [-1, 1,-1], "cornellWhite"),
+	new Triangle([-1,-1, 1],[ 1,-1,-1], [-1,-1,-1], "cornellWhite"),
+	new Triangle([ 1,-1,-1],[-1,-1, 1], [ 1,-1, 1], "cornellWhite"),
+	new Triangle([-1, 1, 1],[-1, 1,-1], [ 1, 1,-1], "cornellWhite"),
+  new Triangle([ 1, 1,-1],[ 1, 1, 1], [-1, 1, 1], "cornellWhite"),
+];
+const triangleLights = [
+	new Triangle([-.3, .99, .3], [-.3, .99,-.3], [ .3, .99,-.3], "weakLight"),
+	new Triangle([ .3, .99,-.3], [ .3, .99, .3], [-.3, .99, .3], "weakLight"),
+];
 
 async function init() {
   const adapter =
@@ -120,7 +218,32 @@ async function initProgram() {
         storageTexture: {
           format: "rgba32float",
         },
+      },      
+      {
+        binding: 6,
+        visibility: GPUShaderStage.FRAGMENT,
+        buffer: { type: "read-only-storage", minBindingSize: 0 },
+      },      
+      {
+        binding: 7,
+        visibility: GPUShaderStage.FRAGMENT,
+        buffer: { type: "read-only-storage", minBindingSize: 0 },
       },
+      {
+        binding: 8,
+        visibility: GPUShaderStage.FRAGMENT,
+        buffer: { type: "read-only-storage", minBindingSize: 0 },
+      },      
+      {
+        binding: 9,
+        visibility: GPUShaderStage.FRAGMENT,
+        buffer: { type: "read-only-storage", minBindingSize: 0 },
+      },      
+      {
+        binding: 10,
+        visibility: GPUShaderStage.FRAGMENT,
+        buffer: { type: "read-only-storage", minBindingSize: 0 },
+      },  
     ],
   });
 
@@ -159,8 +282,40 @@ async function initProgram() {
         binding: 5,
         resource: currentFrameView,
       },
+      {
+        binding: 6,
+        resource: {
+          buffer: bufferLocations.materials,
+        }
+      },
+      {
+        binding: 7,
+        resource: {
+          buffer: bufferLocations.spheres,
+        }
+      },
+      {
+        binding: 8,
+        resource: {
+          buffer: bufferLocations.sphereLights,
+        }
+      },
+      {
+        binding: 9,
+        resource: {
+          buffer: bufferLocations.triangles,
+        }
+      },
+      {
+        binding: 10,
+        resource: {
+          buffer: bufferLocations.triangleLights,
+        }
+      },
     ],
   });
+
+  putGeometryIntoBuffers(device);
 
   // Create pipeline
 
@@ -308,23 +463,80 @@ function clearFrame(e: KeyboardEvent) {
 function createBuffers(gpuDevice: GPUDevice) {
   return {
     resolutionBuffer: gpuDevice.createBuffer({
-      size: 2 * F32_SIZE,
+      size: 2 * F32_ALIGNMENT,
       usage: GPUBufferUsage.COPY_DST | GPUBufferUsage.UNIFORM,
     }),
 
     cameraPosBuffer: gpuDevice.createBuffer({
-      size: 3 * F32_SIZE,
+      size: 3 * F32_ALIGNMENT,
       usage: GPUBufferUsage.COPY_DST | GPUBufferUsage.UNIFORM,
     }),
 
     cameraLookAtBuffer: gpuDevice.createBuffer({
-      size: 3 * F32_SIZE,
+      size: 3 * F32_ALIGNMENT,
       usage: GPUBufferUsage.COPY_DST | GPUBufferUsage.UNIFORM,
     }),
 
     iterationBuffer: gpuDevice.createBuffer({
-      size: F32_SIZE,
+      size: F32_ALIGNMENT,
       usage: GPUBufferUsage.COPY_DST | GPUBufferUsage.UNIFORM,
     }),
+    ...createGeometryBuffers(device),
   };
+}
+
+function createGeometryBuffers(gpuDevice: GPUDevice){
+  const geometryBugger: Record<string, GPUBuffer> = {};
+
+  geometryBugger.materials = gpuDevice.createBuffer({
+    size: Object.keys(materials).length * materialInShaderSize,
+    usage: GPUBufferUsage.COPY_DST | GPUBufferUsage.STORAGE,
+  });
+  
+  geometryBugger.spheres = gpuDevice.createBuffer({
+    size: spheres.length * sphereInShaderSize,
+    usage: GPUBufferUsage.COPY_DST | GPUBufferUsage.STORAGE,
+  });
+  geometryBugger.sphereLights = gpuDevice.createBuffer({
+    size: sphereLights.length * sphereInShaderSize,
+    usage: GPUBufferUsage.COPY_DST | GPUBufferUsage.STORAGE,
+  });
+  geometryBugger.triangles = gpuDevice.createBuffer({
+    size: triangles.length * triangleInShaderSize,
+    usage: GPUBufferUsage.COPY_DST | GPUBufferUsage.STORAGE,
+  });
+  geometryBugger.triangleLights = gpuDevice.createBuffer({
+    size: triangleLights.length * triangleInShaderSize,
+    usage: GPUBufferUsage.COPY_DST | GPUBufferUsage.STORAGE,
+  });
+
+  return geometryBugger;
+}
+
+function putGeometryIntoBuffers(gpuDevice: GPUDevice){
+  gpuDevice.queue.writeBuffer(
+    bufferLocations.materials,
+    0,
+    new Float32Array(Object.values(materials).flatMap(item=>item.toAlignedArray())),
+  );
+  gpuDevice.queue.writeBuffer(
+    bufferLocations.spheres,
+    0,
+    new Float32Array(spheres.flatMap(item=>item.toAlignedArray())),
+  );
+  gpuDevice.queue.writeBuffer(
+    bufferLocations.sphereLights,
+    0,
+    new Float32Array(sphereLights.flatMap(item=>item.toAlignedArray())),
+  );
+  gpuDevice.queue.writeBuffer(
+    bufferLocations.triangles,
+    0,
+    new Float32Array(triangles.flatMap(item=>item.toAlignedArray())),
+  );
+  gpuDevice.queue.writeBuffer(
+    bufferLocations.triangleLights,
+    0,
+    new Float32Array(triangleLights.flatMap(item=>item.toAlignedArray())),
+  );
 }

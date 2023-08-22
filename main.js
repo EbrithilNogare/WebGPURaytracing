@@ -1,13 +1,4 @@
 "use strict";
-var __awaiter = (this && this.__awaiter) || function (thisArg, _arguments, P, generator) {
-    function adopt(value) { return value instanceof P ? value : new P(function (resolve) { resolve(value); }); }
-    return new (P || (P = Promise))(function (resolve, reject) {
-        function fulfilled(value) { try { step(generator.next(value)); } catch (e) { reject(e); } }
-        function rejected(value) { try { step(generator["throw"](value)); } catch (e) { reject(e); } }
-        function step(result) { result.done ? resolve(result.value) : adopt(result.value).then(fulfilled, rejected); }
-        step((generator = generator.apply(thisArg, _arguments || [])).next());
-    });
-};
 let canvas;
 let context;
 let device;
@@ -26,163 +17,296 @@ let camera = {
     y: () => 0,
     z: () => 3,
 };
-const F32_SIZE = 4;
-function init() {
-    var _a, _b;
-    return __awaiter(this, void 0, void 0, function* () {
-        const adapter = (_a = (yield navigator.gpu.requestAdapter())) !== null && _a !== void 0 ? _a : throwExpression("no adapter");
-        device = yield adapter.requestDevice();
-        canvas = document.getElementById("canvas");
-        canvas.width = window.innerWidth;
-        canvas.height = window.innerHeight;
-        context = (_b = canvas.getContext("webgpu")) !== null && _b !== void 0 ? _b : throwExpression("no context");
-        yield initProgram();
-        window.addEventListener("keydown", startStopLoop);
-        window.addEventListener("keydown", clearFrame);
-        window.addEventListener("keydown", nextFrame);
-        window.addEventListener("resize", resizeCanvas);
-        renderLoop();
-        render();
-    });
+const F16_ALIGNMENT = 2;
+const F32_ALIGNMENT = 4;
+const VEC2_ALIGNMENT = 8;
+const VEC3_ALIGNMENT = 16;
+// largest item is taken foor an alignment
+const materialInShaderSize = 2 * VEC3_ALIGNMENT;
+const sphereInShaderSize = 2 * VEC3_ALIGNMENT;
+const triangleInShaderSize = 3 * VEC3_ALIGNMENT;
+class Triangle {
+    constructor(p0, p1, p2, material) {
+        this.toAlignedArray = () => [...this.p0, 0, ...this.p1, 0, ...this.p2, materialNameToNumber(this.material)];
+        this.p0 = p0;
+        this.p1 = p1;
+        this.p2 = p2;
+        this.material = material;
+    }
 }
-function initProgram() {
-    return __awaiter(this, void 0, void 0, function* () {
-        let vertexShaderText = yield fetch("square.vert.wgsl")
-            .then((response) => response.text())
-            .catch(() => {
-            throw "cannot load square.vert.wgsl";
-        });
-        let fragmentShaderText = yield fetch("raytracing.frag.wgsl")
-            .then((response) => response.text())
-            .catch(() => {
-            throw "cannot load raytracing.frag.wgsl";
-        });
-        const presentationFormat = navigator.gpu.getPreferredCanvasFormat();
-        context.configure({
-            device,
-            format: presentationFormat,
-            alphaMode: "premultiplied",
-            usage: GPUTextureUsage.RENDER_ATTACHMENT | GPUTextureUsage.COPY_SRC,
-        });
-        // Create buffers
-        bufferLocations = createBuffers(device);
-        textureLocations = {
-            previousFrameBuffer: device.createTexture({
-                size: [canvas.width, canvas.height],
-                usage: GPUTextureUsage.TEXTURE_BINDING | GPUTextureUsage.COPY_DST,
-                format: "rgba32float",
+class Sphere {
+    constructor(center, radius, material) {
+        this.toAlignedArray = () => [...this.center, this.radius, materialNameToNumber(this.material), 0, 0, 0];
+        this.center = center;
+        this.radius = radius;
+        this.material = material;
+    }
+}
+class Material {
+    constructor(color, reflection, refraction, texture, emissive) {
+        this.toAlignedArray = () => [...this.color, this.reflection, this.refraction, this.texture, this.emissive, 0];
+        this.color = color;
+        this.reflection = reflection;
+        this.refraction = refraction;
+        this.texture = texture;
+        this.emissive = emissive;
+    }
+}
+function materialNameToNumber(materialName) {
+    return Object.keys(materials).indexOf(materialName);
+}
+const materials = {
+    ground: new Material([0.3, 0.3, 0.3], 0.0, 0.0, 0, 0),
+    glass: new Material([1.0, 1.0, 1.0], 1.0, 1.5, -1, 0),
+    metal: new Material([1.0, 1.0, 1.0], 1.0, 0.0, -1, 0),
+    roughtMetal: new Material([1.0, 1.0, 1.0], 0.3, 0.0, -1, 0),
+    solidIndigo: new Material([0.3, 0.0, 0.5], 0.0, 0.0, -1, 0),
+    solidGreen: new Material([0.0, 1.0, 0.0], 0.0, 0.0, -1, 0),
+    solidRed: new Material([1.0, 0.0, 0.0], 0.0, 0.0, -1, 0),
+    solidBlue: new Material([0.0, 0.0, 1.0], 0.0, 0.0, -1, 0),
+    solidYellow: new Material([1.0, 1.0, 0.0], 0.0, 0.0, -1, 0),
+    solidWhite: new Material([1.0, 1.0, 1.0], 0.0, 0.0, -1, 0),
+    cornellRed: new Material([.65, 0.05, 0.05], 0, 0.0, -1, 0),
+    cornellGreen: new Material([.12, .45, .15], 0, 0.0, -1, 0),
+    cornellWhite: new Material([.73, .73, .73], 0, 0.0, -1, 0),
+    weakLight: new Material([0.2, 0.2, 0.2], 0.0, 0.0, -1, 1),
+    light: new Material([10.0, 10.0, 10.0], 0.0, 0.0, -1, 1),
+    strongLight: new Material([100.0, 100.0, 100.0], 0.0, 0.0, -1, 1),
+    glowOrange: new Material([1.7, 0.6, 0.01], 0.0, 0.0, -1, 1),
+};
+const sphereLights = [
+    new Sphere([0, 1.9, 0], 0.01, "weakLight"),
+    new Sphere([0, 1.9, 0], 0.02, "weakLight"),
+];
+const spheres = [
+    new Sphere([-.4, -.7, 0], .3, "glass"),
+    new Sphere([.4, -.7, 0], .3, "metal"),
+];
+const triangles = [
+    //new Triangle([111,2,3],[4,5, 6], [7, 8,9], "cornellGreen"),
+    new Triangle([-1, 1, 1], [-1, -1, 1], [-1, 1, -1], "cornellGreen"),
+    new Triangle([-1, -1, 1], [-1, -1, -1], [-1, 1, -1], "cornellGreen"),
+    new Triangle([1, 1, 1], [1, 1, -1], [1, -1, 1], "cornellRed"),
+    new Triangle([1, -1, 1], [1, 1, -1], [1, -1, -1], "cornellRed"),
+    new Triangle([1, -1, -1], [1, 1, -1], [-1, 1, -1], "cornellWhite"),
+    new Triangle([-1, -1, -1], [1, -1, -1], [-1, 1, -1], "cornellWhite"),
+    new Triangle([-1, -1, 1], [1, -1, -1], [-1, -1, -1], "cornellWhite"),
+    new Triangle([1, -1, -1], [-1, -1, 1], [1, -1, 1], "cornellWhite"),
+    new Triangle([-1, 1, 1], [-1, 1, -1], [1, 1, -1], "cornellWhite"),
+    new Triangle([1, 1, -1], [1, 1, 1], [-1, 1, 1], "cornellWhite"),
+];
+const triangleLights = [
+    new Triangle([-.3, .99, .3], [-.3, .99, -.3], [.3, .99, -.3], "weakLight"),
+    new Triangle([.3, .99, -.3], [.3, .99, .3], [-.3, .99, .3], "weakLight"),
+];
+async function init() {
+    var _a, _b;
+    const adapter = (_a = (await navigator.gpu.requestAdapter())) !== null && _a !== void 0 ? _a : throwExpression("no adapter");
+    device = await adapter.requestDevice();
+    canvas = document.getElementById("canvas");
+    canvas.width = window.innerWidth;
+    canvas.height = window.innerHeight;
+    context = (_b = canvas.getContext("webgpu")) !== null && _b !== void 0 ? _b : throwExpression("no context");
+    await initProgram();
+    window.addEventListener("keydown", startStopLoop);
+    window.addEventListener("keydown", clearFrame);
+    window.addEventListener("keydown", nextFrame);
+    window.addEventListener("resize", resizeCanvas);
+    renderLoop();
+    render();
+}
+async function initProgram() {
+    let vertexShaderText = await fetch("square.vert.wgsl")
+        .then((response) => response.text())
+        .catch(() => {
+        throw "cannot load square.vert.wgsl";
+    });
+    let fragmentShaderText = await fetch("raytracing.frag.wgsl")
+        .then((response) => response.text())
+        .catch(() => {
+        throw "cannot load raytracing.frag.wgsl";
+    });
+    const presentationFormat = navigator.gpu.getPreferredCanvasFormat();
+    context.configure({
+        device,
+        format: presentationFormat,
+        alphaMode: "premultiplied",
+        usage: GPUTextureUsage.RENDER_ATTACHMENT | GPUTextureUsage.COPY_SRC,
+    });
+    // Create buffers
+    bufferLocations = createBuffers(device);
+    textureLocations = {
+        previousFrameBuffer: device.createTexture({
+            size: [canvas.width, canvas.height],
+            usage: GPUTextureUsage.TEXTURE_BINDING | GPUTextureUsage.COPY_DST,
+            format: "rgba32float",
+        }),
+        currentFrameBuffer: device.createTexture({
+            size: [canvas.width, canvas.height],
+            usage: GPUTextureUsage.STORAGE_BINDING | GPUTextureUsage.COPY_SRC,
+            format: "rgba32float",
+        }),
+    };
+    previousFrameView = textureLocations.previousFrameBuffer.createView();
+    currentFrameView = textureLocations.currentFrameBuffer.createView();
+    // Create bind group
+    const bindGroupLayout = device.createBindGroupLayout({
+        entries: [
+            {
+                binding: 0,
+                visibility: GPUShaderStage.FRAGMENT,
+                buffer: {},
+            },
+            {
+                binding: 1,
+                visibility: GPUShaderStage.FRAGMENT,
+                buffer: {},
+            },
+            {
+                binding: 2,
+                visibility: GPUShaderStage.FRAGMENT,
+                buffer: {},
+            },
+            {
+                binding: 3,
+                visibility: GPUShaderStage.FRAGMENT,
+                buffer: {},
+            },
+            {
+                binding: 4,
+                visibility: GPUShaderStage.FRAGMENT,
+                texture: {
+                    sampleType: "unfilterable-float",
+                },
+            },
+            {
+                binding: 5,
+                visibility: GPUShaderStage.FRAGMENT,
+                storageTexture: {
+                    format: "rgba32float",
+                },
+            },
+            {
+                binding: 6,
+                visibility: GPUShaderStage.FRAGMENT,
+                buffer: { type: "read-only-storage", minBindingSize: 0 },
+            },
+            {
+                binding: 7,
+                visibility: GPUShaderStage.FRAGMENT,
+                buffer: { type: "read-only-storage", minBindingSize: 0 },
+            },
+            {
+                binding: 8,
+                visibility: GPUShaderStage.FRAGMENT,
+                buffer: { type: "read-only-storage", minBindingSize: 0 },
+            },
+            {
+                binding: 9,
+                visibility: GPUShaderStage.FRAGMENT,
+                buffer: { type: "read-only-storage", minBindingSize: 0 },
+            },
+            {
+                binding: 10,
+                visibility: GPUShaderStage.FRAGMENT,
+                buffer: { type: "read-only-storage", minBindingSize: 0 },
+            },
+        ],
+    });
+    bindGroup = device.createBindGroup({
+        layout: bindGroupLayout,
+        entries: [
+            {
+                binding: 0,
+                resource: {
+                    buffer: bufferLocations.resolutionBuffer,
+                },
+            },
+            {
+                binding: 1,
+                resource: {
+                    buffer: bufferLocations.cameraPosBuffer,
+                },
+            },
+            {
+                binding: 2,
+                resource: {
+                    buffer: bufferLocations.cameraLookAtBuffer,
+                },
+            },
+            {
+                binding: 3,
+                resource: {
+                    buffer: bufferLocations.iterationBuffer,
+                },
+            },
+            {
+                binding: 4,
+                resource: previousFrameView,
+            },
+            {
+                binding: 5,
+                resource: currentFrameView,
+            },
+            {
+                binding: 6,
+                resource: {
+                    buffer: bufferLocations.materials,
+                }
+            },
+            {
+                binding: 7,
+                resource: {
+                    buffer: bufferLocations.spheres,
+                }
+            },
+            {
+                binding: 8,
+                resource: {
+                    buffer: bufferLocations.sphereLights,
+                }
+            },
+            {
+                binding: 9,
+                resource: {
+                    buffer: bufferLocations.triangles,
+                }
+            },
+            {
+                binding: 10,
+                resource: {
+                    buffer: bufferLocations.triangleLights,
+                }
+            },
+        ],
+    });
+    putGeometryIntoBuffers(device);
+    // Create pipeline
+    const pipelineLayout = device.createPipelineLayout({
+        bindGroupLayouts: [bindGroupLayout],
+    });
+    pipeline = device.createRenderPipeline({
+        layout: pipelineLayout,
+        vertex: {
+            module: device.createShaderModule({
+                code: vertexShaderText,
             }),
-            currentFrameBuffer: device.createTexture({
-                size: [canvas.width, canvas.height],
-                usage: GPUTextureUsage.STORAGE_BINDING | GPUTextureUsage.COPY_SRC,
-                format: "rgba32float",
+            entryPoint: "main",
+        },
+        fragment: {
+            module: device.createShaderModule({
+                code: fragmentShaderText,
             }),
-        };
-        previousFrameView = textureLocations.previousFrameBuffer.createView();
-        currentFrameView = textureLocations.currentFrameBuffer.createView();
-        // Create bind group
-        const bindGroupLayout = device.createBindGroupLayout({
-            entries: [
+            entryPoint: "main",
+            targets: [
                 {
-                    binding: 0,
-                    visibility: GPUShaderStage.FRAGMENT,
-                    buffer: {},
-                },
-                {
-                    binding: 1,
-                    visibility: GPUShaderStage.FRAGMENT,
-                    buffer: {},
-                },
-                {
-                    binding: 2,
-                    visibility: GPUShaderStage.FRAGMENT,
-                    buffer: {},
-                },
-                {
-                    binding: 3,
-                    visibility: GPUShaderStage.FRAGMENT,
-                    buffer: {},
-                },
-                {
-                    binding: 4,
-                    visibility: GPUShaderStage.FRAGMENT,
-                    texture: {
-                        sampleType: "unfilterable-float",
-                    },
-                },
-                {
-                    binding: 5,
-                    visibility: GPUShaderStage.FRAGMENT,
-                    storageTexture: {
-                        format: "rgba32float",
-                    },
+                    format: presentationFormat,
                 },
             ],
-        });
-        bindGroup = device.createBindGroup({
-            layout: bindGroupLayout,
-            entries: [
-                {
-                    binding: 0,
-                    resource: {
-                        buffer: bufferLocations.resolutionBuffer,
-                    },
-                },
-                {
-                    binding: 1,
-                    resource: {
-                        buffer: bufferLocations.cameraPosBuffer,
-                    },
-                },
-                {
-                    binding: 2,
-                    resource: {
-                        buffer: bufferLocations.cameraLookAtBuffer,
-                    },
-                },
-                {
-                    binding: 3,
-                    resource: {
-                        buffer: bufferLocations.iterationBuffer,
-                    },
-                },
-                {
-                    binding: 4,
-                    resource: previousFrameView,
-                },
-                {
-                    binding: 5,
-                    resource: currentFrameView,
-                },
-            ],
-        });
-        // Create pipeline
-        const pipelineLayout = device.createPipelineLayout({
-            bindGroupLayouts: [bindGroupLayout],
-        });
-        pipeline = device.createRenderPipeline({
-            layout: pipelineLayout,
-            vertex: {
-                module: device.createShaderModule({
-                    code: vertexShaderText,
-                }),
-                entryPoint: "main",
-            },
-            fragment: {
-                module: device.createShaderModule({
-                    code: fragmentShaderText,
-                }),
-                entryPoint: "main",
-                targets: [
-                    {
-                        format: presentationFormat,
-                    },
-                ],
-            },
-            primitive: {
-                topology: "triangle-list",
-            },
-        });
+        },
+        primitive: {
+            topology: "triangle-list",
+        },
     });
 }
 function render() {
@@ -266,20 +390,52 @@ function clearFrame(e) {
 function createBuffers(gpuDevice) {
     return {
         resolutionBuffer: gpuDevice.createBuffer({
-            size: 2 * F32_SIZE,
+            size: 2 * F32_ALIGNMENT,
             usage: GPUBufferUsage.COPY_DST | GPUBufferUsage.UNIFORM,
         }),
         cameraPosBuffer: gpuDevice.createBuffer({
-            size: 3 * F32_SIZE,
+            size: 3 * F32_ALIGNMENT,
             usage: GPUBufferUsage.COPY_DST | GPUBufferUsage.UNIFORM,
         }),
         cameraLookAtBuffer: gpuDevice.createBuffer({
-            size: 3 * F32_SIZE,
+            size: 3 * F32_ALIGNMENT,
             usage: GPUBufferUsage.COPY_DST | GPUBufferUsage.UNIFORM,
         }),
         iterationBuffer: gpuDevice.createBuffer({
-            size: F32_SIZE,
+            size: F32_ALIGNMENT,
             usage: GPUBufferUsage.COPY_DST | GPUBufferUsage.UNIFORM,
         }),
+        ...createGeometryBuffers(device),
     };
+}
+function createGeometryBuffers(gpuDevice) {
+    const geometryBugger = {};
+    geometryBugger.materials = gpuDevice.createBuffer({
+        size: Object.keys(materials).length * materialInShaderSize,
+        usage: GPUBufferUsage.COPY_DST | GPUBufferUsage.STORAGE,
+    });
+    geometryBugger.spheres = gpuDevice.createBuffer({
+        size: spheres.length * sphereInShaderSize,
+        usage: GPUBufferUsage.COPY_DST | GPUBufferUsage.STORAGE,
+    });
+    geometryBugger.sphereLights = gpuDevice.createBuffer({
+        size: sphereLights.length * sphereInShaderSize,
+        usage: GPUBufferUsage.COPY_DST | GPUBufferUsage.STORAGE,
+    });
+    geometryBugger.triangles = gpuDevice.createBuffer({
+        size: triangles.length * triangleInShaderSize,
+        usage: GPUBufferUsage.COPY_DST | GPUBufferUsage.STORAGE,
+    });
+    geometryBugger.triangleLights = gpuDevice.createBuffer({
+        size: triangleLights.length * triangleInShaderSize,
+        usage: GPUBufferUsage.COPY_DST | GPUBufferUsage.STORAGE,
+    });
+    return geometryBugger;
+}
+function putGeometryIntoBuffers(gpuDevice) {
+    gpuDevice.queue.writeBuffer(bufferLocations.materials, 0, new Float32Array(Object.values(materials).flatMap(item => item.toAlignedArray())));
+    gpuDevice.queue.writeBuffer(bufferLocations.spheres, 0, new Float32Array(spheres.flatMap(item => item.toAlignedArray())));
+    gpuDevice.queue.writeBuffer(bufferLocations.sphereLights, 0, new Float32Array(sphereLights.flatMap(item => item.toAlignedArray())));
+    gpuDevice.queue.writeBuffer(bufferLocations.triangles, 0, new Float32Array(triangles.flatMap(item => item.toAlignedArray())));
+    gpuDevice.queue.writeBuffer(bufferLocations.triangleLights, 0, new Float32Array(triangleLights.flatMap(item => item.toAlignedArray())));
 }
