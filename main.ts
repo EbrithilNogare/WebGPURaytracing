@@ -92,15 +92,13 @@ const materials: Record<string, Material> = {
   glowOrange:   new Material([  1.7,   0.6,  0.01],       0.0,       0.0,  -1, 1),
 };
 const sphereLights = [
-  new Sphere([0,1.9,0],  0.01, "weakLight"),
-  new Sphere([0,1.9,0],  0.02, "weakLight"),
+    new Sphere([0,1.9,0],  0.02, "weakLight"),
 ];
 const spheres = [
 	new Sphere([-.4, -.7, 0], .3, "glass"),
 	new Sphere([ .4, -.7, 0], .3, "metal"),
 ];
 const triangles = [
-	//new Triangle([111,2,3],[4,5, 6], [7, 8,9], "cornellGreen"),
   new Triangle([-1, 1, 1],[-1,-1, 1], [-1, 1,-1], "cornellGreen"),
 	new Triangle([-1,-1, 1],[-1,-1,-1], [-1, 1,-1], "cornellGreen"),
 	new Triangle([ 1, 1, 1],[ 1, 1,-1], [ 1,-1, 1], "cornellRed"),

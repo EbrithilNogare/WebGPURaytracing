@@ -52,9 +52,9 @@ struct Ray {
 };
 
 struct HitRecord {
-    position: vec3f,         // position
-    normal: vec3f,	 // normal from surface
-    distance: f32,          // distance
+    position: vec3f,
+    normal: vec3f,
+    distance: f32,
     u: f32,			 // texture coordinate
     v: f32,			 // texture coordinate
     frontFace: bool,
