@@ -1,0 +1,21 @@
+<!DOCTYPE html>
+<html>
+<head>
+	<title>WebGPU Raytracing</title>
+
+	<link rel="stylesheet" href="main.css">
+
+	<script src="square.vert.wgsl" type="x-shader/x-vertex" id="vertex-shader"></script>
+	<script src="raytracing.frag.wgsl" type="x-shader/x-fragment" id="fragment-shader"></script>
+
+	<script src="bundle.js"></script>
+</head>
+<body>
+
+	<canvas id="canvas">no canvas</canvas>
+	<div id="helper">press SPACE to run/ stop computation</div>
+	<div id="fpsMeter">00.00 fps</div>
+	<div id="iteration">frame: 0</div>
+
+</body>
+</html>
