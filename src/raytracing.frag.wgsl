@@ -61,31 +61,6 @@ struct HitRecord {
     material: Material,
 };
 
-
-// ########### Scene ###########
-// Materials
-//										 			   color        ,reflection,refraction,texture,emissive
-const ground:       Material = Material(vec3f(  0.3,   0.3,   0.3),       0.0,       0.0,   0, 0);
-const glass:        Material = Material(vec3f(  1.0,   1.0,   1.0),       1.0,       1.5,  -1, 0);
-const metal:        Material = Material(vec3f(  1.0,   1.0,   1.0),       1.0,       0.0,  -1, 0);
-const roughtMetal:  Material = Material(vec3f(  1.0,   1.0,   1.0),       0.3,       0.0,  -1, 0);
-
-const solidIndigo:  Material = Material(vec3f(  0.3,   0.0,   0.5),       0.0,       0.0,  -1, 0);
-const solidGreen:   Material = Material(vec3f(  0.0,   1.0,   0.0),       0.0,       0.0,  -1, 0);
-const solidRed:     Material = Material(vec3f(  1.0,   0.0,   0.0),       0.0,       0.0,  -1, 0);
-const solidBlue:    Material = Material(vec3f(  0.0,   0.0,   1.0),       0.0,       0.0,  -1, 0);
-const solidYellow:  Material = Material(vec3f(  1.0,   1.0,   0.0),       0.0,       0.0,  -1, 0);
-const solidWhite:   Material = Material(vec3f(  1.0,   1.0,   1.0),       0.0,       0.0,  -1, 0);
-const cornellRed:   Material = Material(vec3f(  .65,  0.05,  0.05),         0,       0.0,  -1, 0);
-const cornellGreen: Material = Material(vec3f(  .12,   .45,   .15),         0,       0.0,  -1, 0);
-const cornellWhite: Material = Material(vec3f(  .73,   .73,   .73),         0,       0.0,  -1, 0);
-
-const weakLight:    Material = Material(vec3f(  0.2,   0.2,   0.2),       0.0,       0.0,  -1, 1);
-const light:        Material = Material(vec3f( 10.0,  10.0,  10.0),       0.0,       0.0,  -1, 1);
-const strongLight:  Material = Material(vec3f(100.0, 100.0, 100.0),       0.0,       0.0,  -1, 1);
-const glowOrange:   Material = Material(vec3f(  1.7,   0.6,  0.01),       0.0,       0.0,  -1, 1);
-
-
 // ########### Common functions ###########
 
 fn at(ray: Ray, t: f32) -> vec3f {
@@ -239,7 +214,7 @@ fn hitTriangle(triangle: Triangle, ray: Ray, tMin: f32, tMax: f32, rec: ptr<func
 
 
 fn WorldHit(ray: Ray) -> HitRecord{
-	var rec = HitRecord(vec3(0.0),vec3(0.0), INFINITY, 0.0, 0.0, false, ground);
+	var rec = HitRecord(vec3(0.0),vec3(0.0), INFINITY, 0.0, 0.0, false, materials[0]);
 
 	var spheresCount = arrayLength(&spheres);
 	for(var i: u32 = 0; i < spheresCount; i++){
@@ -272,7 +247,7 @@ fn directionToTrianlgeLight(light: Triangle, point: vec3f) -> vec3f {
 
 fn LightHit(point: vec3f, normal: vec3f) -> vec3f {
 	var lightColor = vec3f(0);
-	var rec = HitRecord(vec3(0.0),vec3(0.0), INFINITY, 0.0, 0.0, false, ground);
+	var rec = HitRecord(vec3(0.0),vec3(0.0), INFINITY, 0.0, 0.0, false, materials[0]);
 
 	var sphereLightsCount = arrayLength(&sphereLights);
 	for(var i: u32 = 0; i < sphereLightsCount; i++){
